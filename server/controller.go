@@ -1,5 +1,9 @@
 package server
 
+import (
+	"net/http"
+)
+
 // Controller base type of all controllers
 type Controller struct {
 	Name           string
@@ -7,11 +11,12 @@ type Controller struct {
 	Path           string
 	Method         string
 	IsSecured      bool
+	AuthFunc       func(ctx *Context, w http.ResponseWriter, r *http.Request) error
 	ControllerFunc func(ctx *Context)
 }
 
 // Execute executes the controller in the given context
-func (c *Controller) Execute(ctx *Context) {
-	ctx.StatusInformation.IncrementMetric(c.Metric)
-	c.ControllerFunc(ctx)
+func (ctr *Controller) Execute(ctx *Context) {
+	ctx.StatusInformation.IncrementMetric(ctr.Metric)
+	ctr.ControllerFunc(ctx)
 }

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/franklyner/ssf/server"
 )
 
@@ -21,6 +24,7 @@ type minControllerProvider struct{}
 func (t minControllerProvider) GetControllers() []server.Controller {
 	ctrl := []server.Controller{
 		IndexController,
+		SecuredControlller,
 	}
 	return ctrl
 }
@@ -34,5 +38,26 @@ var IndexController server.Controller = server.Controller{
 	Path:      "/index.html",
 	ControllerFunc: func(ctx *server.Context) {
 		ctx.SendHTMLResponse(200, []byte("Hello World!"))
+	},
+}
+
+// SecuredControlller just redirects to login
+var SecuredControlller server.Controller = server.Controller{
+	Name:      "SecuredControlller",
+	Metric:    "SecuredControlller",
+	Method:    "GET",
+	IsSecured: true,
+	Path:      "/secured.html",
+	ControllerFunc: func(ctx *server.Context) {
+		ctx.SendHTMLResponse(200, []byte("Hello Secure World!"))
+	},
+	AuthFunc: func(ctx *server.Context, w http.ResponseWriter, r *http.Request) error {
+		secure := r.FormValue("secure")
+		if secure == "true" {
+			return nil
+		}
+		msg := "secure query param wasn't set"
+		ctx.SendHTMLResponse(http.StatusBadRequest, []byte(msg))
+		return fmt.Errorf(msg)
 	},
 }

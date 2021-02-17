@@ -23,11 +23,12 @@ const (
 // Server Generic server who is able to load a list of controllers from
 // multiple ControllerProviders
 type Server struct {
-	config      Config
-	controllers []Controller
-	statusInfo  *StatusInformation
-	repository  *Repository
-	serviceMap  map[string]interface{}
+	config         Config
+	controllers    []Controller
+	statusInfo     *StatusInformation
+	repository     *Repository
+	serviceMap     map[string]interface{}
+	requestHandler http.Handler
 }
 
 // GetControllers returns all controllers of the controller provider
@@ -50,12 +51,20 @@ func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
 		controllers: []Controller{},
 		statusInfo:  CreateStatusInfo(),
 	}
+
+	r := mux.NewRouter()
+
 	for _, ctrProv := range ctrProviders {
 		ctrList := ctrProv.GetControllers()
 		for _, ctr := range ctrList {
-			server.controllers = append(server.controllers, ctr)
+			server.registerController(r, ctr)
 		}
 	}
+
+	server.registerController(r, StatusController)
+
+	server.requestHandler = logRequestHandler(r)
+
 	server.serviceMap = make(map[string]interface{})
 	return &server
 }
@@ -72,14 +81,6 @@ func (s *Server) RegisterService(name string, service interface{}) {
 
 // Start starts the previously initialized server
 func (s *Server) Start() {
-	r := mux.NewRouter()
-
-	for _, controller := range s.controllers {
-		s.registerController(r, controller)
-	}
-	s.registerController(r, StatusController)
-
-	var handler http.Handler = logRequestHandler(r)
 
 	port := s.config.Get(ConfigPort)
 	rt, err1 := s.config.GetDuration(ConfigReadTimeout)
@@ -91,7 +92,7 @@ func (s *Server) Start() {
 		Addr:         fmt.Sprintf(":%s", port),
 		ReadTimeout:  rt,
 		WriteTimeout: wt,
-		Handler:      handler,
+		Handler:      s.requestHandler,
 	}
 
 	log.Printf("Starting listening on port: %s", port)
@@ -113,19 +114,21 @@ func (s *Server) initContext(w http.ResponseWriter, r *http.Request) *Context {
 }
 
 func (s *Server) registerController(r *mux.Router, c Controller) {
-	ctr := http.HandlerFunc(s.getControllerHandlerFunc(c))
-	if c.IsSecured {
-		jwtmid := getJWTMiddlewareHanlder()
-		ctr = jwtmid.Handler(ctr).(http.HandlerFunc)
-		fmt.Printf("Secured controller %s", c.Name)
-	}
-	r.Handle(c.Path, ctr).Methods(c.Method)
+	ctrHandler := http.HandlerFunc(s.getControllerHandlerFunc(c))
+
+	r.Handle(c.Path, ctrHandler).Methods(c.Method)
 	log.Printf("Registered controller %s", c.Name)
 }
 
 func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := s.initContext(w, r)
+		if c.IsSecured {
+			err := c.AuthFunc(ctx, w, r)
+			if err != nil {
+				return
+			}
+		}
 		c.Execute(ctx)
 	}
 }
@@ -142,6 +145,7 @@ func logRequestHandler(h http.Handler) http.Handler {
 		// gather information about request and log it
 		uri := r.URL.String()
 		method := r.Method
+
 		// ... more information
 		logHTTPReq(uri, method, duration)
 	}
@@ -154,6 +158,12 @@ func logRequestHandler(h http.Handler) http.Handler {
 func logHTTPReq(uri string, method string, duration int64) {
 	log.Printf("%s %s: processing duration: %d ns", method, uri, duration)
 }
+
+// todo: will need to make issuer and audience parameterized and create a func
+// that creates a handler that can be added to a controller
+// jwtmid := getJWTMiddlewareHanlder()
+// ctr = jwtmid.Handler(ctr).(http.HandlerFunc)
+// fmt.Printf("Secured controller %s", c.Name)
 
 func getJWTMiddlewareHanlder() *jwtmiddleware.JWTMiddleware {
 	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
