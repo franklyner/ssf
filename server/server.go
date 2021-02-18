@@ -161,6 +161,7 @@ func logHTTPReq(uri string, method string, duration int64) {
 
 // todo: will need to make issuer and audience parameterized and create a func
 // that creates a handler that can be added to a controller
+// how to use jwt middleware
 // jwtmid := getJWTMiddlewareHanlder()
 // ctr = jwtmid.Handler(ctr).(http.HandlerFunc)
 // fmt.Printf("Secured controller %s", c.Name)
