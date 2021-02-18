@@ -49,7 +49,7 @@ var SecuredControlller server.Controller = server.Controller{
 	IsSecured: true,
 	Path:      "/secured.html",
 	ControllerFunc: func(ctx *server.Context) {
-		ctx.SendHTMLResponse(200, []byte("Hello Secure World!"))
+		ctx.SendHTMLResponse(200, []byte("Hello Secured World!"))
 	},
 	AuthFunc: func(ctx *server.Context, w http.ResponseWriter, r *http.Request) error {
 		secure := r.FormValue("secure")
