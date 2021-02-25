@@ -99,6 +99,11 @@ func (s *Server) Start() {
 	log.Fatal(httpSrv.ListenAndServe())
 }
 
+// GetMainHandler Gives access to the mux router for testing purposes
+func (s *Server) GetMainHandler() http.Handler {
+	return s.requestHandler
+}
+
 // initContext initialzes the context for the given request
 func (s *Server) initContext(w http.ResponseWriter, r *http.Request) *Context {
 	context := Context{
@@ -114,6 +119,8 @@ func (s *Server) initContext(w http.ResponseWriter, r *http.Request) *Context {
 }
 
 func (s *Server) registerController(r *mux.Router, c Controller) {
+	s.controllers = append(s.controllers, c)
+
 	ctrHandler := http.HandlerFunc(s.getControllerHandlerFunc(c))
 
 	r.Handle(c.Path, ctrHandler).Methods(c.Method)

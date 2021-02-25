@@ -12,11 +12,17 @@ var (
 )
 
 func main() {
-	cfg := server.CreateConfig("./cmd/minimal", "minimal", configProperties)
+	server := initServer("./cmd/minimal")
+	server.Start()
+}
+
+func initServer(configPath string) *server.Server {
+	cfg := server.CreateConfig(configPath, "minimal", configProperties)
 	ctrProviders := []server.ControllerProvider{minControllerProvider{}}
 
 	server := server.CreateServer(cfg, ctrProviders)
-	server.Start()
+	server.RegisterService("hello", helloService{})
+	return server
 }
 
 type minControllerProvider struct{}
@@ -25,11 +31,16 @@ func (t minControllerProvider) GetControllers() []server.Controller {
 	ctrl := []server.Controller{
 		IndexController,
 		SecuredControlller,
+		ServiceController,
 	}
 	return ctrl
 }
 
-// IndexController just redirects to login
+type helloService struct{}
+
+func (h *helloService) sayHello() string { return "Hello World!" }
+
+// IndexController Says hello
 var IndexController server.Controller = server.Controller{
 	Name:      "Index",
 	Metric:    "IndexCtrl",
@@ -41,7 +52,7 @@ var IndexController server.Controller = server.Controller{
 	},
 }
 
-// SecuredControlller just redirects to login
+// SecuredControlller Says hello if secured
 var SecuredControlller server.Controller = server.Controller{
 	Name:      "SecuredControlller",
 	Metric:    "SecuredControlller",
@@ -59,5 +70,18 @@ var SecuredControlller server.Controller = server.Controller{
 		msg := "secure query param wasn't set"
 		ctx.SendHTMLResponse(http.StatusBadRequest, []byte(msg))
 		return fmt.Errorf(msg)
+	},
+}
+
+// ServiceController Uses a service to say hello
+var ServiceController server.Controller = server.Controller{
+	Name:      "ServiceController",
+	Metric:    "ServiceController",
+	Method:    "GET",
+	IsSecured: false,
+	Path:      "/service.html",
+	ControllerFunc: func(ctx *server.Context) {
+		helloSrv := ctx.GetService("hello").(helloService)
+		ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello()))
 	},
 }
