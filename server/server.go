@@ -131,7 +131,7 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := s.initContext(w, r)
 		if c.IsSecured {
-			err := c.AuthFunc(ctx, w, r)
+			err := c.AuthFunc(ctx)
 			if err != nil {
 				return
 			}

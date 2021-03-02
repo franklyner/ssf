@@ -1,9 +1,5 @@
 package server
 
-import (
-	"net/http"
-)
-
 // Controller base type of all controllers
 type Controller struct {
 	Name           string
@@ -11,7 +7,7 @@ type Controller struct {
 	Path           string
 	Method         string
 	IsSecured      bool
-	AuthFunc       func(ctx *Context, w http.ResponseWriter, r *http.Request) error
+	AuthFunc       func(ctx *Context) error
 	ControllerFunc func(ctx *Context)
 }
 

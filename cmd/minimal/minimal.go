@@ -62,8 +62,8 @@ var SecuredControlller server.Controller = server.Controller{
 	ControllerFunc: func(ctx *server.Context) {
 		ctx.SendHTMLResponse(200, []byte("Hello Secured World!"))
 	},
-	AuthFunc: func(ctx *server.Context, w http.ResponseWriter, r *http.Request) error {
-		secure := r.FormValue("secure")
+	AuthFunc: func(ctx *server.Context) error {
+		secure := ctx.Request.FormValue("secure")
 		if secure == "true" {
 			return nil
 		}
