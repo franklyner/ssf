@@ -65,9 +65,10 @@ func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
 		}
 	}
 
-	server.registerController(r, StatusController)
+	r.NotFoundHandler = getNotFoundHandler()
 
-	server.requestHandler = logRequestHandler(r)
+	server.registerController(r, StatusController)
+	server.requestHandler = r
 
 	server.serviceMap = make(map[string]interface{})
 	return &server
@@ -110,14 +111,19 @@ func (s *Server) GetMainHandler() http.Handler {
 
 // initContext initialzes the context for the given request
 func (s *Server) initContext(w http.ResponseWriter, r *http.Request) *Context {
+	reqID := r.Header.Get("X-Request-ID")
+	if reqID == "" {
+		reqID = uuid.New().String()
+	}
+
 	context := Context{
 		Server:            s,
 		Request:           r,
-		Writer:            w,
+		responseWriter:    w,
 		StatusInformation: s.statusInfo,
 		Repository:        s.repository,
 		serviceMap:        s.serviceMap,
-		RequestID:         uuid.New(),
+		RequestID:         reqID,
 	}
 	return &context
 }
@@ -127,48 +133,46 @@ func (s *Server) registerController(r *mux.Router, c Controller) {
 
 	ctrHandler := http.HandlerFunc(s.getControllerHandlerFunc(c))
 
-	r.Handle(c.Path, ctrHandler).Methods(c.Method)
+	r.Handle(c.Path, ctrHandler).Methods(c.Methods...)
 	log.Printf("Registered controller %s", c.Name)
 }
 
 func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now().UnixNano()
 		ctx := s.initContext(w, r)
 		if c.IsSecured {
 			err := c.AuthFunc(ctx)
 			if err != nil {
+				ctx.LogError(fmt.Sprintf("Authentication for controller %s failed: %s", c.Name, err.Error()))
 				return
 			}
 		}
 		ctx.LogInfo("Executing " + c.Name)
 		c.Execute(ctx)
+		duration := time.Now().UnixNano() - start
+
+		ctx.LogInfo(formatExecLogMessage(r, duration))
 	}
 }
 
-func logRequestHandler(h http.Handler) http.Handler {
+func formatExecLogMessage(r *http.Request, duration int64) string {
+	uri := r.URL.String()
+	method := r.Method
+	return fmt.Sprintf("%s %s: processing duration: %d ns", method, uri, duration)
+}
+
+func getNotFoundHandler() http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now().UnixNano()
 
-		// call the original http.Handler we're wrapping
-		h.ServeHTTP(w, r)
-
-		duration := time.Now().UnixNano() - start
-
-		// gather information about request and log it
-		uri := r.URL.String()
-		method := r.Method
-
-		// ... more information
-		logHTTPReq(uri, method, duration)
+		log.Println(formatExecLogMessage(r, 0) + " NOT FOUND")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, "Not Found!")
 	}
 
 	// http.HandlerFunc wraps a function so that it
 	// implements http.Handler interface
 	return http.HandlerFunc(fn)
-}
-
-func logHTTPReq(uri string, method string, duration int64) {
-	log.Printf("%s %s: processing duration: %d ns", method, uri, duration)
 }
 
 // todo: will need to make issuer and audience parameterized and create a func

@@ -44,10 +44,16 @@ func (h *helloService) sayHello() string { return "Hello World!" }
 var IndexController server.Controller = server.Controller{
 	Name:      "Index",
 	Metric:    "IndexCtrl",
-	Method:    "GET",
+	Methods:   []string{"GET"},
 	IsSecured: false,
 	Path:      "/index.html",
 	ControllerFunc: func(ctx *server.Context) {
+		r := ctx.Request
+		fail := r.FormValue("fail")
+		if fail != "" {
+			ctx.SendAndLogError(http.StatusBadRequest, "Received fail param!", fail)
+			return
+		}
 		ctx.SendHTMLResponse(200, []byte("Hello World!"))
 	},
 }
@@ -56,7 +62,7 @@ var IndexController server.Controller = server.Controller{
 var SecuredControlller server.Controller = server.Controller{
 	Name:      "SecuredControlller",
 	Metric:    "SecuredControlller",
-	Method:    "GET",
+	Methods:   []string{"GET"},
 	IsSecured: true,
 	Path:      "/secured.html",
 	ControllerFunc: func(ctx *server.Context) {
@@ -77,7 +83,7 @@ var SecuredControlller server.Controller = server.Controller{
 var ServiceController server.Controller = server.Controller{
 	Name:      "ServiceController",
 	Metric:    "ServiceController",
-	Method:    "GET",
+	Methods:   []string{"GET"},
 	IsSecured: false,
 	Path:      "/service.html",
 	ControllerFunc: func(ctx *server.Context) {

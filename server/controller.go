@@ -5,7 +5,7 @@ type Controller struct {
 	Name           string
 	Metric         string
 	Path           string
-	Method         string
+	Methods        []string
 	IsSecured      bool
 	AuthFunc       func(ctx *Context) error
 	ControllerFunc func(ctx *Context)

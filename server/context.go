@@ -4,25 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	"github.com/google/uuid"
 )
 
 // Context intantiated for every request
 type Context struct {
 	Server            *Server
 	Request           *http.Request
-	Writer            http.ResponseWriter
+	responseWriter    http.ResponseWriter
 	Repository        *Repository
 	IsResponseSent    bool
 	StatusInformation *StatusInformation
 	requestBody       []byte
 	testResponse      *bytes.Buffer
-	RequestID         uuid.UUID
+	RequestID         string
 	Subdomain         string
 	serviceMap        map[string]interface{}
 }
@@ -40,17 +37,6 @@ func (ctx *Context) GetService(name string) interface{} {
 		return service
 	}
 	return fmt.Errorf("No service with name %s found", name)
-}
-
-// GetWriter provides response writer or testWriter if in test context
-func (ctx *Context) GetWriter() io.Writer {
-	if ctx.Writer != nil {
-		return ctx.Writer
-	}
-	if ctx.testResponse == nil {
-		ctx.testResponse = new(bytes.Buffer)
-	}
-	return ctx.testResponse
 }
 
 func (ctx *Context) getTestResponse() string {
@@ -78,15 +64,15 @@ func (ctx *Context) SetRequestBodyManually(body []byte) {
 }
 
 func (ctx *Context) sendCode(code int) {
-	if ctx.Writer != nil {
-		ctx.Writer.WriteHeader(code)
+	if ctx.responseWriter != nil {
+		ctx.responseWriter.WriteHeader(code)
 	}
 }
 
 // SendResponseHeader sends the response header
 func (ctx *Context) SendResponseHeader(header string, value string) {
-	if ctx.Writer != nil {
-		ctx.Writer.Header().Set(header, value)
+	if ctx.responseWriter != nil {
+		ctx.responseWriter.Header().Set(header, value)
 	}
 }
 
@@ -107,17 +93,18 @@ func (ctx *Context) SendGenericResponse(code int, response []byte, contentType s
 	}
 	ctx.sendCode(code)
 	ctx.SendResponseHeader("Content-Type", contentType)
-	w := ctx.GetWriter()
+	w := ctx.responseWriter
 	_, err := fmt.Fprint(w, string(response))
 	if err != nil {
 		return fmt.Errorf("Error occured while sending response: %d, %s. Error: %w", code, response, err)
 	}
+	ctx.IsResponseSent = true
 	return nil
 }
 
 // SendAndLogError helper function that is specialized in sending back an error response to the client
 func (ctx *Context) SendAndLogError(code int, message string, data string) {
-	ctx.LogError(fmt.Sprintf("%s, Data: %s", message, data))
+	ctx.LogError(fmt.Sprintf("Error response: code: %d, message: %s, Data: %s", code, message, data))
 	var resp errorResponse = errorResponse{
 		Code:    code,
 		Message: message,
@@ -135,16 +122,16 @@ func (ctx *Context) SendAndLogError(code int, message string, data string) {
 	}
 }
 
-func (ctx *Context) log(msg string) {
-	log.Printf("%s: %s", ctx.RequestID, msg)
+func (ctx *Context) log(severity string, msg string) {
+	log.Printf(`{"req_id": "%s", "severity": "%s"} %s`, ctx.RequestID, severity, msg)
 }
 
 // LogError logs an error
 func (ctx *Context) LogError(msg string) {
-	ctx.log("Error: " + msg)
+	ctx.log("Error", msg)
 }
 
 // LogInfo logs an error
 func (ctx *Context) LogInfo(msg string) {
-	ctx.log("Info: " + msg)
+	ctx.log("Info", msg)
 }

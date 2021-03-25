@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 )
 
@@ -45,7 +46,7 @@ var StatusController Controller = Controller{
 	Name:      "StatusController",
 	Metric:    "status",
 	Path:      "/status",
-	Method:    "GET",
+	Methods:   []string{"GET"},
 	IsSecured: false,
 	ControllerFunc: func(ctx *Context) {
 		stats := &ctx.StatusInformation.Stats
@@ -54,7 +55,7 @@ var StatusController Controller = Controller{
 		for _, ctr := range ctx.Server.GetControllers() {
 			html.WriteString(fmt.Sprintf("Total number of %s: %d<br/>", ctr.Name, (*stats)[ctr.Metric]))
 		}
-		fmt.Fprintf(ctx.GetWriter(), html.String())
+		ctx.SendHTMLResponse(http.StatusOK, []byte(html.String()))
 		return
 	},
 }

@@ -25,6 +25,17 @@ func TestIndexController(t *testing.T) {
 	}
 }
 
+func TestIndexControllerFail(t *testing.T) {
+	request := httptest.NewRequest("GET", "/index.html?fail=true", nil)
+	responseRecorder := httptest.NewRecorder()
+
+	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
+
+	if responseRecorder.Code != http.StatusBadRequest {
+		t.Errorf("IndexController returned code %d. Expected %d", responseRecorder.Code, http.StatusBadRequest)
+	}
+}
+
 func TestServiceController(t *testing.T) {
 	request := httptest.NewRequest("GET", "/service.html", nil)
 	responseRecorder := httptest.NewRecorder()
@@ -72,6 +83,7 @@ func TestSecuredController(t *testing.T) {
 
 func TestStatusController(t *testing.T) {
 	request := httptest.NewRequest("GET", "/status", nil)
+	request.Header.Add("x-request-id", "request-id-from-header")
 	responseRecorder := httptest.NewRecorder()
 
 	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
