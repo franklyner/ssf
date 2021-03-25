@@ -10,6 +10,7 @@ import (
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -37,7 +38,10 @@ func (s *Server) GetControllers() []Controller {
 }
 
 // ControllerProvider Interfice providing access the list of controllers
-// from another module
+// from another module. If a controller provider requires configuration
+// then it is expected to export the parameters as fields and the
+// function instantiating the server is responsible to fill them.
+// The Config can be used for convenience.
 type ControllerProvider interface {
 	GetControllers() []Controller
 }
@@ -111,9 +115,9 @@ func (s *Server) initContext(w http.ResponseWriter, r *http.Request) *Context {
 		Request:           r,
 		Writer:            w,
 		StatusInformation: s.statusInfo,
-		Config:            &s.config,
 		Repository:        s.repository,
 		serviceMap:        s.serviceMap,
+		RequestID:         uuid.New(),
 	}
 	return &context
 }
@@ -136,6 +140,7 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 				return
 			}
 		}
+		ctx.LogInfo("Executing " + c.Name)
 		c.Execute(ctx)
 	}
 }

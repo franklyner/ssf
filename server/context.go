@@ -17,7 +17,6 @@ type Context struct {
 	Server            *Server
 	Request           *http.Request
 	Writer            http.ResponseWriter
-	Config            *Config
 	Repository        *Repository
 	IsResponseSent    bool
 	StatusInformation *StatusInformation

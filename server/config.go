@@ -10,7 +10,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config Central access point to all config properties
+// Config Central access point to all config properties.
+// The basic principle is that we want to fail on startup if a config property is missing.
 type Config struct {
 	p map[string]string
 }
@@ -47,6 +48,9 @@ func (c *Config) GetDuration(property string) (time.Duration, error) {
 }
 
 // CreateConfig creates a new Config object and initializes it with the given config file ref.
+// To follow the principle described for Config, the config file is only read here. If
+// another key is requested later on then the application will fail. So properties should
+// contain every key that will ever be needed.
 func CreateConfig(path string, name string, properties []string) Config {
 	var config Config = Config{
 		p: make(map[string]string),
@@ -75,10 +79,16 @@ func CreateConfig(path string, name string, properties []string) Config {
 	return config
 }
 
+// SetProperty Allows to programmatically add properties or change their value if the key already exists.
+// Only strings are supported for storage. But they can be converted with the appropriate Get methods.
+func (c *Config) SetProperty(key string, value string) {
+	c.p[key] = value
+}
+
 // LoadProperties attempts to load all provided properties from the config file into memory
 func (c *Config) LoadProperties(properites []string) {
 	for _, prop := range properites {
 		val := viper.GetString(prop)
-		c.p[prop] = val
+		c.SetProperty(prop, val)
 	}
 }
