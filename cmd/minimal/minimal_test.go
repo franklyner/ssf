@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -97,4 +98,26 @@ func TestStatusController(t *testing.T) {
 		t.Errorf("Failed to read response body: %w", err)
 	}
 	log.Print(string(body))
+}
+
+func TestJWKValidation(t *testing.T) {
+	jwt := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1qVkRORFl4UkVFNU5VSTNPRFJETlRGR05ETkRRVFpHTTBVMU9EZ3lNakV6TUROQ05UVTVPQSJ9.eyJodHRwczovL21heGJyYWluLmlvL3VzZXJfZW1haWwiOiJrcmlzdGluYS5zZWt1bGljQHEtc29mdHdhcmUuY29tIiwiaHR0cHM6Ly9tYXhicmFpbi5pby90ZW5hbnRfaWQiOiI2MTAiLCJodHRwczovL21heGJyYWluLmlvL3RlbmFudF9zdWJkb21haW4iOiJwYW1kdWYiLCJodHRwczovL21heGJyYWluLmlvL2lzX2NvY2twaXRfdXNlciI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9tYXhicmFpbi1kZXYuZXUuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDVjM2M1ZGY5NDFhZmQ5N2NmYWZlNzQ1NyIsImF1ZCI6WyJodHRwczovL2NvY2twaXQubWF4YnJhaW4uaW8vYXBpLyIsImh0dHBzOi8vbWF4YnJhaW4tZGV2LmV1LmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE2MTY3NzgzOTMsImV4cCI6MTYxNjc4NTU5MywiYXpwIjoidmRnbWtRM25xamJXSDJZRE8wNnNPb1c1RXF2UGF4SngiLCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIn0.QxBWAu8jdmoV48uKpZ7H54v8_dHWPLVp84f5PqRgn3sbslbwIts9z65Z3v2ZpjXAEsCLAC1tZqNh5iF_Gn0YjpvYv0cL3wMrp0JXFqybJG-59mbBxlSuFIgRcp4v2LncSrXoTixO1Yg0YS-J1KDrBtfAV2VjFAVP4u-CrH7_fdESO66TxUeX6oIgdEo1SKh-FTyLGyZvNHWrE6IHpJ2t_ROW5iCBqwF4qaHxOIFu3yasUBFlGwQ8l_i10vOSkBpme32Htmv0mnvvPHQdS72DWb3DgqZ-kEaZ-6QjGEgqA-pRKNRGm2kcru1s3L_4cWfyKU9JqtJxV8WtOBNSLLLQ7Q"
+	request := httptest.NewRequest("GET", "/jwt.html", nil)
+	request.Header.Add("x-request-id", "request-id-from-header")
+	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
+	responseRecorder := httptest.NewRecorder()
+
+	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
+	if responseRecorder.Code != 200 {
+		t.Errorf("JWTController returned code %d. Expected 200", responseRecorder.Code)
+	}
+	request = httptest.NewRequest("GET", "/jwt.html", nil)
+	request.Header.Add("x-request-id", "request-id-from-header")
+	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
+	responseRecorder = httptest.NewRecorder()
+
+	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
+	if responseRecorder.Code != 200 {
+		t.Errorf("JWTController returned code %d. Expected 200", responseRecorder.Code)
+	}
 }

@@ -1,9 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -177,10 +179,20 @@ func getNotFoundHandler() http.Handler {
 // ctr = jwtmid.Handler(ctr).(http.HandlerFunc)
 // fmt.Printf("Secured controller %s", c.Name)
 
-func getJWTMiddlewareHanlder() *jwtmiddleware.JWTMiddleware {
+func GetJWTMiddlewareHanlder(issuer string, audience string) *jwtmiddleware.JWTMiddleware {
 	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			// todo: verify issuer and audience?
+			claims := token.Claims.(jwt.MapClaims)
+			if claims["iss"] != issuer {
+				msg := fmt.Sprintf("Token has wrong issuer: %s", claims["iss"])
+				fmt.Println(msg)
+				return nil, errors.New(msg)
+			}
+			if audience != "" && claims["aud"] != audience {
+				msg := fmt.Sprintf("Token has wrong audience: %s", claims["aud"])
+				fmt.Println(msg)
+				return nil, errors.New(msg)
+			}
 
 			cert, err := getPemCert(token)
 			if err != nil {
@@ -199,21 +211,32 @@ func getJWTMiddlewareHanlder() *jwtmiddleware.JWTMiddleware {
 	return jwtMiddleware
 }
 
+// ok to cache globally as multiple server instance can share the same cache
+var keyMap map[string][]byte = make(map[string][]byte)
+
 func getPemCert(token *jwt.Token) (string, error) {
 	cert := ""
 
 	claims := token.Claims.(jwt.MapClaims)
-	url := claims["iss"].(string) + ".well-known/jwks.json"
-	fmt.Printf("Getting certificate with: %s\n", url)
-	resp, err := http.Get(url)
+	issuer := claims["iss"].(string)
+	if _, ok := keyMap[issuer]; !ok {
+		url := claims["iss"].(string) + ".well-known/jwks.json"
+		fmt.Printf("Getting certificate with: %s\n", url)
+		resp, err := http.Get(url)
 
-	if err != nil {
-		return cert, err
+		if err != nil {
+			return cert, err
+		}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return cert, nil
+		}
+		keyMap[issuer] = body
 	}
-	defer resp.Body.Close()
 
+	reader := bytes.NewReader(keyMap[issuer])
 	var jwks = Jwks{}
-	err = json.NewDecoder(resp.Body).Decode(&jwks)
+	err := json.NewDecoder(reader).Decode(&jwks)
 
 	if err != nil {
 		return cert, err

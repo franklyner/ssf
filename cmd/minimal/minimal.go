@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 
 	"github.com/franklyner/ssf/server"
 )
@@ -53,6 +54,15 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			Config:         srvConf,
 			ControllerFunc: service,
 		},
+		{
+			Name:           "JWTController",
+			Metric:         "JWTController",
+			Methods:        []string{"GET"},
+			IsSecured:      true,
+			Path:           "/jwt.html",
+			ControllerFunc: jwtController,
+			AuthFunc:       getJwtAuth(),
+		},
 	}
 	return ctrl
 }
@@ -95,4 +105,16 @@ var SecuredControlller server.Controller = server.Controller{
 func service(ctx *server.Context) {
 	helloSrv := ctx.GetService("hello").(helloService)
 	ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello(ctx.Controller.Config["name"])))
+}
+
+func getJwtAuth() func(ctx *server.Context) error {
+	jmw := server.GetJWTMiddlewareHanlder("https://maxbrain-dev.eu.auth0.com/", "")
+	return func(ctx *server.Context) error {
+		err := jmw.CheckJWT(httptest.NewRecorder(), ctx.Request)
+		return err
+	}
+}
+
+func jwtController(ctx *server.Context) {
+	ctx.SendHTMLResponse(http.StatusOK, []byte("if you see this, it worked!"))
 }
