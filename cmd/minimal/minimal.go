@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	configProperties []string = []string{server.ConfigPort, server.ConfigReadTimeout, server.ConfigWriteTimeout}
+	configProperties []string = []string{server.ConfigPort, server.ConfigReadTimeout, server.ConfigWriteTimeout, "name"}
 )
 
 func main() {
@@ -18,44 +18,57 @@ func main() {
 
 func initServer(configPath string) *server.Server {
 	cfg := server.CreateConfig(configPath, "minimal", configProperties)
-	ctrProviders := []server.ControllerProvider{minControllerProvider{}}
+	ctrProviders := []server.ControllerProvider{minControllerProvider{
+		Name: cfg.Get("name"),
+	}}
 
 	server := server.CreateServer(cfg, ctrProviders)
 	server.RegisterService("hello", helloService{})
 	return server
 }
 
-type minControllerProvider struct{}
+type minControllerProvider struct {
+	Name string
+}
 
-func (t minControllerProvider) GetControllers() []server.Controller {
+func (m minControllerProvider) GetControllers() []server.Controller {
+	srvConf := make(map[string]string)
+	srvConf["name"] = m.Name
 	ctrl := []server.Controller{
-		IndexController,
+		{
+			Name:           "Index",
+			Metric:         "IndexCtrl",
+			Methods:        []string{"GET"},
+			IsSecured:      false,
+			Path:           "/index.html",
+			ControllerFunc: index,
+		},
 		SecuredControlller,
-		ServiceController,
+		{
+			Name:           "ServiceController",
+			Metric:         "ServiceController",
+			Methods:        []string{"GET"},
+			IsSecured:      false,
+			Path:           "/service.html",
+			Config:         srvConf,
+			ControllerFunc: service,
+		},
 	}
 	return ctrl
 }
 
 type helloService struct{}
 
-func (h *helloService) sayHello() string { return "Hello World!" }
+func (h *helloService) sayHello(name string) string { return "Hello " + name }
 
-// IndexController Says hello
-var IndexController server.Controller = server.Controller{
-	Name:      "Index",
-	Metric:    "IndexCtrl",
-	Methods:   []string{"GET"},
-	IsSecured: false,
-	Path:      "/index.html",
-	ControllerFunc: func(ctx *server.Context) {
-		r := ctx.Request
-		fail := r.FormValue("fail")
-		if fail != "" {
-			ctx.SendAndLogError(http.StatusBadRequest, "Received fail param!", fail)
-			return
-		}
-		ctx.SendHTMLResponse(200, []byte("Hello World!"))
-	},
+func index(ctx *server.Context, ctr *server.Controller) {
+	r := ctx.Request
+	fail := r.FormValue("fail")
+	if fail != "" {
+		ctx.SendAndLogError(http.StatusBadRequest, "Received fail param!", fail)
+		return
+	}
+	ctx.SendHTMLResponse(200, []byte("Hello World!"))
 }
 
 // SecuredControlller Says hello if secured
@@ -65,7 +78,7 @@ var SecuredControlller server.Controller = server.Controller{
 	Methods:   []string{"GET"},
 	IsSecured: true,
 	Path:      "/secured.html",
-	ControllerFunc: func(ctx *server.Context) {
+	ControllerFunc: func(ctx *server.Context, ctr *server.Controller) {
 		ctx.SendHTMLResponse(200, []byte("Hello Secured World!"))
 	},
 	AuthFunc: func(ctx *server.Context) error {
@@ -79,15 +92,7 @@ var SecuredControlller server.Controller = server.Controller{
 	},
 }
 
-// ServiceController Uses a service to say hello
-var ServiceController server.Controller = server.Controller{
-	Name:      "ServiceController",
-	Metric:    "ServiceController",
-	Methods:   []string{"GET"},
-	IsSecured: false,
-	Path:      "/service.html",
-	ControllerFunc: func(ctx *server.Context) {
-		helloSrv := ctx.GetService("hello").(helloService)
-		ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello()))
-	},
+func service(ctx *server.Context, ctr *server.Controller) {
+	helloSrv := ctx.GetService("hello").(helloService)
+	ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello(ctr.Config["name"])))
 }

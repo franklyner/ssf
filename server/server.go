@@ -37,15 +37,6 @@ func (s *Server) GetControllers() []Controller {
 	return s.controllers
 }
 
-// ControllerProvider Interfice providing access the list of controllers
-// from another module. If a controller provider requires configuration
-// then it is expected to export the parameters as fields and the
-// function instantiating the server is responsible to fill them.
-// The Config can be used for convenience.
-type ControllerProvider interface {
-	GetControllers() []Controller
-}
-
 // CreateServer Factory method to create a Server instance. This is meant
 // to be used by main methods and provide the list of ControllerProviders
 // the server instance is supposed to serve

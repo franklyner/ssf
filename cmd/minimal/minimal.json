@@ -1,6 +1,6 @@
 {
     "port" : "5050",
     "readTimeout" : "2m",
-    "writeTimeout" : "2m"
-
+    "writeTimeout" : "2m",
+    "name" : "Simple Server Framework"
 }
