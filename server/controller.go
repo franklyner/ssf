@@ -17,12 +17,13 @@ type Controller struct {
 	Methods        []string
 	IsSecured      bool
 	AuthFunc       func(ctx *Context) error
-	ControllerFunc func(ctx *Context, ctr *Controller)
+	ControllerFunc func(ctx *Context)
 	Config         map[string]string
 }
 
 // Execute executes the controller in the given context
 func (ctr *Controller) Execute(ctx *Context) {
 	ctx.StatusInformation.IncrementMetric(ctr.Metric)
-	ctr.ControllerFunc(ctx, ctr)
+	ctx.Controller = ctr
+	ctr.ControllerFunc(ctx)
 }

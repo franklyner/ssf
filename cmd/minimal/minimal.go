@@ -61,7 +61,7 @@ type helloService struct{}
 
 func (h *helloService) sayHello(name string) string { return "Hello " + name }
 
-func index(ctx *server.Context, ctr *server.Controller) {
+func index(ctx *server.Context) {
 	r := ctx.Request
 	fail := r.FormValue("fail")
 	if fail != "" {
@@ -78,7 +78,7 @@ var SecuredControlller server.Controller = server.Controller{
 	Methods:   []string{"GET"},
 	IsSecured: true,
 	Path:      "/secured.html",
-	ControllerFunc: func(ctx *server.Context, ctr *server.Controller) {
+	ControllerFunc: func(ctx *server.Context) {
 		ctx.SendHTMLResponse(200, []byte("Hello Secured World!"))
 	},
 	AuthFunc: func(ctx *server.Context) error {
@@ -92,7 +92,7 @@ var SecuredControlller server.Controller = server.Controller{
 	},
 }
 
-func service(ctx *server.Context, ctr *server.Controller) {
+func service(ctx *server.Context) {
 	helloSrv := ctx.GetService("hello").(helloService)
-	ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello(ctr.Config["name"])))
+	ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello(ctx.Controller.Config["name"])))
 }

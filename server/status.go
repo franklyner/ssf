@@ -48,7 +48,7 @@ var StatusController Controller = Controller{
 	Path:      "/status",
 	Methods:   []string{"GET"},
 	IsSecured: false,
-	ControllerFunc: func(ctx *Context, ctr *Controller) {
+	ControllerFunc: func(ctx *Context) {
 		stats := &ctx.StatusInformation.Stats
 		html := strings.Builder{}
 		html.WriteString("<html>This is a status page. <br/><br/>")

@@ -21,6 +21,7 @@ type Context struct {
 	RequestID         string
 	Subdomain         string
 	serviceMap        map[string]interface{}
+	Controller        *Controller
 }
 
 type errorResponse struct {
