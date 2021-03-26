@@ -132,32 +132,36 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now().UnixNano()
 		ctx := s.initContext(w, r)
+		ctx.LogInfo(fmt.Sprintf("Executing %s for request: %s", c.Name, r.RequestURI))
 		if c.IsSecured {
 			err := c.AuthFunc(ctx)
 			if err != nil {
-				ctx.LogError(fmt.Sprintf("Authentication for controller %s failed: %s", c.Name, err.Error()))
+				if ctx.IsResponseSent {
+					ctx.LogError(fmt.Sprintf("Authentication for controller %s failed with code: %d: %s", c.Name, ctx.ResponseCode, err.Error()))
+					return
+				}
+				ctx.SendAndLogError(http.StatusUnauthorized, fmt.Sprintf("Authentication for controller %s failed: %s", c.Name, err.Error()), "")
 				return
 			}
 		}
-		ctx.LogInfo("Executing " + c.Name)
 		c.Execute(ctx)
 		duration := time.Now().UnixNano() - start
 
-		ctx.LogInfo(formatExecLogMessage(r, duration))
+		ctx.LogInfo(formatExecLogMessage(r, duration, ctx.ResponseCode))
 	}
 }
 
-func formatExecLogMessage(r *http.Request, duration int64) string {
+func formatExecLogMessage(r *http.Request, duration int64, code int) string {
 	uri := r.URL.String()
 	method := r.Method
-	return fmt.Sprintf("%s %s: processing duration: %d ns", method, uri, duration)
+	return fmt.Sprintf("%s %s: processing duration: %d ns, returned code: %d", method, uri, duration, code)
 }
 
 func getNotFoundHandler() http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-
-		log.Println(formatExecLogMessage(r, 0) + " NOT FOUND")
-		w.WriteHeader(http.StatusNotFound)
+		code := http.StatusNotFound
+		log.Println(formatExecLogMessage(r, 0, code) + " NOT FOUND")
+		w.WriteHeader(code)
 		fmt.Fprint(w, "Not Found!")
 	}
 

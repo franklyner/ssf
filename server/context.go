@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -16,9 +15,9 @@ type Context struct {
 	responseWriter    http.ResponseWriter
 	Repository        *Repository
 	IsResponseSent    bool
+	ResponseCode      int
 	StatusInformation *StatusInformation
 	requestBody       []byte
-	testResponse      *bytes.Buffer
 	RequestID         string
 	Subdomain         string
 	serviceMap        map[string]interface{}
@@ -37,13 +36,6 @@ func (ctx *Context) GetService(name string) interface{} {
 		return service
 	}
 	return fmt.Errorf("No service with name %s found", name)
-}
-
-func (ctx *Context) getTestResponse() string {
-	if ctx.testResponse == nil {
-		return ""
-	}
-	return ctx.testResponse.String()
 }
 
 // GetRequestBody readx the full body and returns it
@@ -65,6 +57,7 @@ func (ctx *Context) SetRequestBodyManually(body []byte) {
 
 func (ctx *Context) sendCode(code int) {
 	if ctx.responseWriter != nil {
+		ctx.ResponseCode = code
 		ctx.responseWriter.WriteHeader(code)
 	}
 }
