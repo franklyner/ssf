@@ -43,6 +43,7 @@ func (ctx *Context) GetService(name string) interface{} {
 func (ctx *Context) GetRequestBody() ([]byte, error) {
 	if len(ctx.requestBody) == 0 {
 		body, err := ioutil.ReadAll(ctx.Request.Body)
+		defer ctx.Request.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("Error while reading request body: %w", err)
 		}
