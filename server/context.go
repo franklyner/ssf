@@ -85,10 +85,10 @@ func (ctx *Context) SendGenericResponse(code int, response []byte, contentType s
 	if ctx.IsResponseSent {
 		return fmt.Errorf("Response for this request was already sent")
 	}
-	ctx.sendCode(code)
 	ctx.SendResponseHeader("Content-Type", contentType)
+	ctx.sendCode(code)
 	w := ctx.responseWriter
-	_, err := fmt.Fprint(w, string(response))
+	_, err := w.Write(response)
 	if err != nil {
 		return fmt.Errorf("Error occured while sending response: %d, %s. Error: %w", code, response, err)
 	}
