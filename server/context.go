@@ -8,6 +8,11 @@ import (
 	"net/http"
 )
 
+const (
+	LogLevelDebug = "debug"
+	LogLevelInfo  = "info"
+)
+
 // Context intantiated for every request
 type Context struct {
 	Server            *Server
@@ -22,6 +27,7 @@ type Context struct {
 	Subdomain         string
 	serviceMap        map[string]interface{}
 	Controller        *Controller
+	LogLevel          string
 }
 
 type errorResponse struct {
@@ -129,4 +135,11 @@ func (ctx *Context) LogError(msg string) {
 // LogInfo logs an error
 func (ctx *Context) LogInfo(msg string) {
 	ctx.log("Info", msg)
+}
+
+// LogDebug logs an error
+func (ctx *Context) LogDebug(msg string) {
+	if ctx.LogLevel == LogLevelDebug {
+		ctx.log("Debug", msg)
+	}
 }

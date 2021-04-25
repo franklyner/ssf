@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
@@ -21,6 +22,7 @@ const (
 	ConfigPort         = "port"
 	ConfigReadTimeout  = "readTimeout"
 	ConfigWriteTimeout = "writeTimeout"
+	ConfigLogLevel     = "loglevel"
 )
 
 // Server Generic server who is able to load a list of controllers from
@@ -32,6 +34,7 @@ type Server struct {
 	repository     *Repository
 	serviceMap     map[string]interface{}
 	requestHandler http.Handler
+	logLevel       string
 }
 
 // GetControllers returns all controllers of the controller provider
@@ -64,6 +67,15 @@ func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
 	server.requestHandler = r
 
 	server.serviceMap = make(map[string]interface{})
+
+	ll := config.Get(ConfigLogLevel)
+	if ll == "" {
+		ll = LogLevelInfo
+	} else if (strings.ToLower(ll) != LogLevelDebug) || (strings.ToLower(ll) != LogLevelInfo) {
+		log.Panicf("Invalid loglevel provided. Expecting %s or %s", LogLevelDebug, LogLevelInfo)
+	}
+
+	server.logLevel = ll
 	return &server
 }
 
@@ -117,6 +129,7 @@ func (s *Server) initContext(w http.ResponseWriter, r *http.Request) *Context {
 		Repository:        s.repository,
 		serviceMap:        s.serviceMap,
 		RequestID:         reqID,
+		LogLevel:          s.logLevel,
 	}
 	return &context
 }

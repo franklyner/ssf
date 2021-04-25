@@ -19,16 +19,15 @@ type Config struct {
 // Get returns a cached property value. Panics if the property doesn't exist
 func (c *Config) Get(property string) string {
 	val := c.p[property]
-	if val == "" {
-		panic("The requested property was not found in the config file: " + property)
-	}
 	return val
 }
 
 // GetInt fetches the property as string and attempts at parsing it as duration string
 func (c *Config) GetInt(property string) int {
 	sInt := c.Get(property)
-
+	if sInt == "" {
+		return 0
+	}
 	i, err := strconv.Atoi(sInt)
 	if err != nil {
 		panic(fmt.Sprintf("Error while parsing value of property: %s. Stringvalue: %s, Error: %s", property, sInt, err))
@@ -39,7 +38,9 @@ func (c *Config) GetInt(property string) int {
 // GetDuration fetches the property as string and attempts at parsing it as duration string
 func (c *Config) GetDuration(property string) (time.Duration, error) {
 	sDur := c.Get(property)
-
+	if sDur == "" {
+		return time.Duration(0), nil
+	}
 	dur, err := time.ParseDuration(sDur)
 	if err != nil {
 		return 0, fmt.Errorf("Error while parsing value of property: %s. Stringvalue: %s, Error: %w", property, sDur, err)
@@ -88,6 +89,9 @@ func (c *Config) SetProperty(key string, value string) {
 // LoadProperties attempts to load all provided properties from the config file into memory
 func (c *Config) LoadProperties(properites []string) {
 	for _, prop := range properites {
+		if !viper.IsSet(prop) {
+			log.Panicf("Following property was requested as mandatory but is missing in the config file: %s", prop)
+		}
 		val := viper.GetString(prop)
 		c.SetProperty(prop, val)
 	}
