@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	serv *server.Server = initServer(".")
+	cfg                 = server.CreateConfig("./", "minimal", ConfigProperties)
+	serv *server.Server = initServer(cfg)
 )
 
 func TestIndexController(t *testing.T) {
@@ -119,5 +120,32 @@ func TestJWKValidation(t *testing.T) {
 	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
 	if responseRecorder.Code != 200 {
 		t.Errorf("JWTController returned code %d. Expected 200", responseRecorder.Code)
+	}
+}
+
+func TestLogLevelController(t *testing.T) {
+	config := server.CreateConfig("./", "minimal", ConfigProperties)
+
+	config.SetProperty(server.ConfigLogLevel, "info")
+	fmt.Println("Loglevel set to info")
+	srv := initServer(config)
+	request := httptest.NewRequest("GET", "/loglevel", nil)
+	responseRecorder := httptest.NewRecorder()
+
+	srv.GetMainHandler().ServeHTTP(responseRecorder, request)
+
+	if responseRecorder.Code != 200 {
+		t.Errorf("LogLevelController returned code %d. Expected 200", responseRecorder.Code)
+	}
+	config.SetProperty(server.ConfigLogLevel, "debug")
+	fmt.Println("Loglevel set to debug")
+	srv = initServer(config)
+	request = httptest.NewRequest("GET", "/loglevel", nil)
+	responseRecorder = httptest.NewRecorder()
+
+	srv.GetMainHandler().ServeHTTP(responseRecorder, request)
+
+	if responseRecorder.Code != 200 {
+		t.Errorf("LogLevelController returned code %d. Expected 200", responseRecorder.Code)
 	}
 }

@@ -9,21 +9,21 @@ import (
 )
 
 var (
-	configProperties []string = []string{server.ConfigPort, server.ConfigReadTimeout, server.ConfigWriteTimeout, "name"}
+	ConfigProperties []string = []string{server.ConfigPort, server.ConfigReadTimeout, server.ConfigWriteTimeout, "name"}
 )
 
 func main() {
-	server := initServer("./cmd/minimal")
+	cfg := server.CreateConfig("./cmd/minimal", "minimal", ConfigProperties)
+	server := initServer(cfg)
 	server.Start()
 }
 
-func initServer(configPath string) *server.Server {
-	cfg := server.CreateConfig(configPath, "minimal", configProperties)
+func initServer(config server.Config) *server.Server {
 	ctrProviders := []server.ControllerProvider{minControllerProvider{
-		Name: cfg.Get("name"),
+		Name: config.Get("name"),
 	}}
 
-	server := server.CreateServer(cfg, ctrProviders)
+	server := server.CreateServer(config, ctrProviders)
 	server.RegisterService("hello", helloService{})
 	return server
 }
@@ -33,8 +33,6 @@ type minControllerProvider struct {
 }
 
 func (m minControllerProvider) GetControllers() []server.Controller {
-	srvConf := make(map[string]string)
-	srvConf["name"] = m.Name
 	ctrl := []server.Controller{
 		{
 			Name:           "Index",
@@ -51,7 +49,6 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			Methods:        []string{"GET"},
 			IsSecured:      false,
 			Path:           "/service.html",
-			Config:         srvConf,
 			ControllerFunc: service,
 		},
 		{
@@ -62,6 +59,14 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			Path:           "/jwt.html",
 			ControllerFunc: jwtController,
 			AuthFunc:       getJwtAuth(),
+		},
+		{
+			Name:           "LogLevelController",
+			Metric:         "LogLevelController",
+			Methods:        []string{"GET"},
+			IsSecured:      false,
+			Path:           "/loglevel",
+			ControllerFunc: logController,
 		},
 	}
 	return ctrl
@@ -104,7 +109,8 @@ var SecuredControlller server.Controller = server.Controller{
 
 func service(ctx *server.Context) {
 	helloSrv := ctx.GetService("hello").(helloService)
-	ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello(ctx.Controller.Config["name"])))
+	ctrp := ctx.ControllerProvider.(minControllerProvider)
+	ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello(ctrp.Name)))
 }
 
 func getJwtAuth() func(ctx *server.Context) error {
@@ -117,4 +123,11 @@ func getJwtAuth() func(ctx *server.Context) error {
 
 func jwtController(ctx *server.Context) {
 	ctx.SendHTMLResponse(http.StatusOK, []byte("if you see this, it worked!"))
+}
+
+func logController(ctx *server.Context) {
+	ctx.LogDebug("This is a debug message")
+	ctx.LogInfo("This is an info message")
+	ctx.LogError("This is an error message")
+	ctx.SendHTMLResponse(http.StatusOK, []byte("Check your logfile!"))
 }

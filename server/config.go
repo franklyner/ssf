@@ -19,6 +19,10 @@ type Config struct {
 // Get returns a cached property value. Panics if the property doesn't exist
 func (c *Config) Get(property string) string {
 	val := c.p[property]
+	if val == "" && viper.IsSet(property) {
+		c.p[property] = viper.GetString(property)
+		val = c.p[property]
+	}
 	return val
 }
 

@@ -34,7 +34,7 @@ type Server struct {
 	repository     *Repository
 	serviceMap     map[string]interface{}
 	requestHandler http.Handler
-	logLevel       string
+	LogLevel       string
 }
 
 // GetControllers returns all controllers of the controller provider
@@ -57,6 +57,7 @@ func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
 	for _, ctrProv := range ctrProviders {
 		ctrList := ctrProv.GetControllers()
 		for _, ctr := range ctrList {
+			ctr.controllerProvider = ctrProv
 			server.registerController(r, ctr)
 		}
 	}
@@ -71,11 +72,11 @@ func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
 	ll := config.Get(ConfigLogLevel)
 	if ll == "" {
 		ll = LogLevelInfo
-	} else if (strings.ToLower(ll) != LogLevelDebug) || (strings.ToLower(ll) != LogLevelInfo) {
+	} else if (strings.ToLower(ll) != LogLevelDebug) && (strings.ToLower(ll) != LogLevelInfo) {
 		log.Panicf("Invalid loglevel provided. Expecting %s or %s", LogLevelDebug, LogLevelInfo)
 	}
 
-	server.logLevel = ll
+	server.LogLevel = ll
 	return &server
 }
 
@@ -115,21 +116,23 @@ func (s *Server) GetMainHandler() http.Handler {
 }
 
 // initContext initialzes the context for the given request
-func (s *Server) initContext(w http.ResponseWriter, r *http.Request) *Context {
+func (s *Server) initContext(w http.ResponseWriter, r *http.Request, c Controller) *Context {
 	reqID := r.Header.Get("X-Request-ID")
 	if reqID == "" {
 		reqID = uuid.New().String()
 	}
 
 	context := Context{
-		Server:            s,
-		Request:           r,
-		responseWriter:    w,
-		StatusInformation: s.statusInfo,
-		Repository:        s.repository,
-		serviceMap:        s.serviceMap,
-		RequestID:         reqID,
-		LogLevel:          s.logLevel,
+		Server:             s,
+		Request:            r,
+		responseWriter:     w,
+		StatusInformation:  s.statusInfo,
+		Repository:         s.repository,
+		serviceMap:         s.serviceMap,
+		RequestID:          reqID,
+		LogLevel:           s.LogLevel,
+		ControllerProvider: c.controllerProvider,
+		Controller:         &c,
 	}
 	return &context
 }
@@ -146,8 +149,8 @@ func (s *Server) registerController(r *mux.Router, c Controller) {
 func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now().UnixNano()
-		ctx := s.initContext(w, r)
-		ctx.LogInfo(fmt.Sprintf("Executing %s for request: %s", c.Name, r.RequestURI))
+		ctx := s.initContext(w, r, c)
+		ctx.LogDebug(fmt.Sprintf("Executing %s for request: %s", c.Name, r.RequestURI))
 		if c.IsSecured {
 			err := c.AuthFunc(ctx)
 			if err != nil {
@@ -162,7 +165,7 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 		c.Execute(ctx)
 		duration := time.Now().UnixNano() - start
 
-		ctx.LogInfo(formatExecLogMessage(r, duration, ctx.ResponseCode))
+		ctx.LogDebug(formatExecLogMessage(r, duration, ctx.ResponseCode))
 	}
 }
 

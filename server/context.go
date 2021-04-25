@@ -15,19 +15,20 @@ const (
 
 // Context intantiated for every request
 type Context struct {
-	Server            *Server
-	Request           *http.Request
-	responseWriter    http.ResponseWriter
-	Repository        *Repository
-	IsResponseSent    bool
-	ResponseCode      int
-	StatusInformation *StatusInformation
-	requestBody       []byte
-	RequestID         string
-	Subdomain         string
-	serviceMap        map[string]interface{}
-	Controller        *Controller
-	LogLevel          string
+	Server             *Server
+	Request            *http.Request
+	responseWriter     http.ResponseWriter
+	Repository         *Repository
+	IsResponseSent     bool
+	ResponseCode       int
+	StatusInformation  *StatusInformation
+	requestBody        []byte
+	RequestID          string
+	Subdomain          string
+	serviceMap         map[string]interface{}
+	ControllerProvider ControllerProvider
+	Controller         *Controller
+	LogLevel           string
 }
 
 type errorResponse struct {
@@ -124,7 +125,7 @@ func (ctx *Context) SendAndLogError(code int, message string, data string) {
 }
 
 func (ctx *Context) log(severity string, msg string) {
-	log.Printf(`{"req_id": "%s", "severity": "%s"} %s`, ctx.RequestID, severity, msg)
+	log.Printf(`{"req_id": "%s", "severity": "%s", "controller": "%s"} %s`, ctx.RequestID, severity, ctx.Controller.Name, msg)
 }
 
 // LogError logs an error
