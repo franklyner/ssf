@@ -15,14 +15,17 @@ import (
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+
+	_ "net/http/pprof"
 )
 
 // All config properties required for the server to run
 const (
-	ConfigPort         = "port"
-	ConfigReadTimeout  = "readTimeout"
-	ConfigWriteTimeout = "writeTimeout"
-	ConfigLogLevel     = "loglevel"
+	ConfigPort            = "port"
+	ConfigReadTimeout     = "readTimeout"
+	ConfigWriteTimeout    = "writeTimeout"
+	ConfigLogLevel        = "loglevel"
+	ConfigEnableProfiling = "enable_profiling"
 )
 
 // Server Generic server who is able to load a list of controllers from
@@ -60,6 +63,12 @@ func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
 			ctr.controllerProvider = ctrProv
 			server.registerController(r, ctr)
 		}
+	}
+
+	prof := config.Get(ConfigEnableProfiling)
+	if prof == "true" {
+		r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+		log.Println("Enabled profiling endpoints on /debug/pprof/")
 	}
 
 	r.NotFoundHandler = getNotFoundHandler()
