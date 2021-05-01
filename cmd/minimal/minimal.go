@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net/http/httptest"
+	"reflect"
 
+	"github.com/form3tech-oss/jwt-go"
 	"github.com/franklyner/ssf/server"
 )
 
@@ -58,7 +59,7 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			IsSecured:      true,
 			Path:           "/jwt.html",
 			ControllerFunc: jwtController,
-			AuthFunc:       getJwtAuth(),
+			AuthFunc:       server.GetJwtAuth("https://maxbrain-dev.eu.auth0.com/", claimsValidator),
 		},
 		{
 			Name:           "LogLevelController",
@@ -113,16 +114,29 @@ func service(ctx *server.Context) {
 	ctx.SendHTMLResponse(200, []byte(helloSrv.sayHello(ctrp.Name)))
 }
 
-func getJwtAuth() func(ctx *server.Context) error {
-	jmw := server.GetJWTMiddlewareHanlder("https://maxbrain-dev.eu.auth0.com/", "")
-	return func(ctx *server.Context) error {
-		err := jmw.CheckJWT(httptest.NewRecorder(), ctx.Request)
-		return err
-	}
-}
-
 func jwtController(ctx *server.Context) {
 	ctx.SendHTMLResponse(http.StatusOK, []byte("if you see this, it worked!"))
+}
+
+func claimsValidator(claims jwt.MapClaims) error {
+	audiences := claims["aud"]
+	fmt.Printf(reflect.TypeOf(audiences).String())
+	switch audiences.(type) {
+	case string:
+		if audiences != "https://cockpit.maxbrain.io/api/" {
+			return fmt.Errorf("token contains wrong audience: %s", audiences)
+		}
+	case []interface{}:
+		for _, aud := range audiences.([]interface{}) {
+			if aud.(string) == "https://cockpit.maxbrain.io/api/" {
+				return nil
+			}
+		}
+		return fmt.Errorf("correct audience not found in token")
+	default:
+		return fmt.Errorf("aud claim of unexpected type: %T", audiences)
+	}
+	return nil
 }
 
 func logController(ctx *server.Context) {

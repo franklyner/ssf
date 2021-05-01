@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
+	"net/http/httptest"
 	_ "net/http/pprof"
 )
 
@@ -197,36 +198,36 @@ func getNotFoundHandler() http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-// todo: will need to make issuer and audience parameterized and create a func
-// that creates a handler that can be added to a controller
-// how to use jwtMiddleware
-// jwtmid := getJWTMiddlewareHanlder()
-// ctr = jwtmid.Handler(ctr).(http.HandlerFunc)
-// fmt.Printf("Secured controller %s", c.Name)
+func GetJwtAuth(issuer string, customValidator func(claims jwt.MapClaims) error) func(ctx *Context) error {
+	jmw := getJWTMiddlewareHandler(issuer, customValidator)
+	return func(ctx *Context) error {
+		err := jmw.CheckJWT(httptest.NewRecorder(), ctx.Request)
+		return err
+	}
+}
 
-func GetJWTMiddlewareHanlder(issuer string, audience string) *jwtmiddleware.JWTMiddleware {
+func getJWTMiddlewareHandler(issuer string, customValidator func(claims jwt.MapClaims) error) *jwtmiddleware.JWTMiddleware {
 	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 			claims := token.Claims.(jwt.MapClaims)
 			if claims["iss"] != issuer {
-				msg := fmt.Sprintf("Token has wrong issuer: %s", claims["iss"])
-				fmt.Println(msg)
-				return nil, errors.New(msg)
-			}
-			if audience != "" && claims["aud"] != audience {
-				msg := fmt.Sprintf("Token has wrong audience: %s", claims["aud"])
+				msg := fmt.Sprintf("token has wrong issuer: %s", claims["iss"])
 				fmt.Println(msg)
 				return nil, errors.New(msg)
 			}
 
+			err := customValidator(claims)
+			if err != nil {
+				return nil, fmt.Errorf("custom claims validator returned error: %w", err)
+			}
+
 			cert, err := getPemCert(token)
 			if err != nil {
-				panic(err.Error())
+				return nil, fmt.Errorf("unable to fetch token certificate with JWKS: %w", err)
 			}
 			result, err := jwt.ParseRSAPublicKeyFromPEM([]byte(cert))
 			if err != nil {
-				fmt.Printf("Error parsing public key from JWKS endpoint: Error: %+v", err)
-				return nil, err
+				return nil, fmt.Errorf("error parsing public key from JWKS endpoint: %w", err)
 			}
 
 			return result, nil
