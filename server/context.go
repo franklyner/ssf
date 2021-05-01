@@ -104,6 +104,10 @@ func (ctx *Context) SendGenericResponse(code int, response []byte, contentType s
 	return nil
 }
 
+func (ctx *Context) SendRedirect(newurl string, statusCode int) {
+	http.Redirect(ctx.responseWriter, ctx.Request, newurl, statusCode)
+}
+
 // SendAndLogError helper function that is specialized in sending back an error response to the client
 func (ctx *Context) SendAndLogError(code int, message string, data string) {
 	ctx.LogError(fmt.Sprintf("Error response: code: %d, message: %s, Data: %s", code, message, data))
