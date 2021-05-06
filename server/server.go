@@ -247,7 +247,7 @@ func getPemCert(token *jwt.Token) (string, error) {
 	issuer := claims["iss"].(string)
 	if _, ok := keyMap[issuer]; !ok {
 		url := claims["iss"].(string) + ".well-known/jwks.json"
-		fmt.Printf("Getting certificate with: %s\n", url)
+
 		resp, err := http.Get(url)
 
 		if err != nil {
