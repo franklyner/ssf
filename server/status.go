@@ -56,11 +56,12 @@ var StatusController Controller = Controller{
 			`<table>
 				<tr align="left">
 					<th>Controller Name</th>
+					<th>Methods</th>
 					<th>Path</th>
 					<th>Invokation Count</th>
 				</tr>`)
 		for _, ctr := range ctx.Server.GetControllers() {
-			html.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td align='center'>%d</td></tr>", ctr.Name, ctr.Path, (*stats)[ctr.Metric]))
+			html.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%+v</td><td>%s</td><td align='center'>%d</td></tr>", ctr.Name, ctr.Methods, ctr.Path, (*stats)[ctr.Metric]))
 		}
 		html.WriteString("</table>\n")
 		ctx.SendHTMLResponse(http.StatusOK, []byte(html.String()))
