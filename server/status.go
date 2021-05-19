@@ -52,9 +52,17 @@ var StatusController Controller = Controller{
 		stats := &ctx.StatusInformation.Stats
 		html := strings.Builder{}
 		html.WriteString("<html>This is a status page. <br/><br/>")
+		html.WriteString(
+			`<table>
+				<tr align="left">
+					<th>Controller Name</th>
+					<th>Path</th>
+					<th>Invokation Count</th>
+				</tr>`)
 		for _, ctr := range ctx.Server.GetControllers() {
-			html.WriteString(fmt.Sprintf("Total number of %s: %d<br/>", ctr.Name, (*stats)[ctr.Metric]))
+			html.WriteString(fmt.Sprintf("<tr><td>%s</td><td>%s</td><td align='center'>%d</td></tr>", ctr.Name, ctr.Path, (*stats)[ctr.Metric]))
 		}
+		html.WriteString("</table>\n")
 		ctx.SendHTMLResponse(http.StatusOK, []byte(html.String()))
 		return
 	},
