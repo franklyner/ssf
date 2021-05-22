@@ -42,6 +42,7 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			IsSecured:      false,
 			Path:           "/index.html",
 			ControllerFunc: index,
+			Description:    "Basic hello world. returns code bad request if query param fail is set to any non-empty value",
 		},
 		SecuredControlller,
 		{
@@ -51,6 +52,7 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			IsSecured:      false,
 			Path:           "/service.html",
 			ControllerFunc: service,
+			Description:    "Says hello world using a service",
 		},
 		{
 			Name:           "JWTController",
@@ -60,6 +62,7 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			Path:           "/jwt.html",
 			ControllerFunc: jwtController,
 			AuthFunc:       server.GetJwtAuth("https://maxbrain-dev.eu.auth0.com/", claimsValidator),
+			Description:    "Authenticates using a jwt",
 		},
 		{
 			Name:           "LogLevelController",
@@ -106,6 +109,7 @@ var SecuredControlller server.Controller = server.Controller{
 		ctx.SendHTMLResponse(http.StatusBadRequest, []byte(msg))
 		return fmt.Errorf(msg)
 	},
+	Description: "Only executes if query param secure=true is set.",
 }
 
 func service(ctx *server.Context) {
@@ -115,7 +119,10 @@ func service(ctx *server.Context) {
 }
 
 func jwtController(ctx *server.Context) {
-	ctx.SendHTMLResponse(http.StatusOK, []byte("if you see this, it worked!"))
+	token := ctx.Request.Context().Value("user").(*jwt.Token)
+	claims := token.Claims.(jwt.MapClaims)
+
+	ctx.SendHTMLResponse(http.StatusOK, []byte(fmt.Sprintf("Received token with following claims: %+v", claims)))
 }
 
 func claimsValidator(claims jwt.MapClaims) error {

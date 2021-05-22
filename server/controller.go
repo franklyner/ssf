@@ -19,6 +19,7 @@ type Controller struct {
 	AuthFunc           func(ctx *Context) error
 	ControllerFunc     func(ctx *Context)
 	controllerProvider ControllerProvider
+	Description        string
 }
 
 // Execute executes the controller in the given context
