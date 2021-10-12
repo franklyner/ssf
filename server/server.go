@@ -168,7 +168,11 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 					ctx.LogError(fmt.Sprintf("Authentication for controller %s failed with code: %d: %s", c.Name, ctx.ResponseCode, err.Error()))
 					return
 				}
-				ctx.SendAndLogError(http.StatusUnauthorized, fmt.Sprintf("Authentication for controller %s failed: %s", c.Name, err.Error()), "")
+				ctx.SendJsonError(JSONErrorResponse{
+					Code:       http.StatusUnauthorized,
+					Message:    "unauthorized",
+					LogMessage: fmt.Sprintf("Authentication for controller %s failed: %s", c.Name, err.Error()),
+				})
 				return
 			}
 		}

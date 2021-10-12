@@ -61,7 +61,7 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			IsSecured:      true,
 			Path:           "/jwt.html",
 			ControllerFunc: jwtController,
-			AuthFunc:       server.GetJwtAuth("https://maxbrain-dev.eu.auth0.com/", claimsValidator),
+			AuthFunc:       server.GetJwtAuth("https://login.dev.maxbrain.io/", claimsValidator),
 			Description:    "Authenticates using a jwt",
 		},
 		{
@@ -83,11 +83,14 @@ func (h *helloService) sayHello(name string) string { return "Hello " + name }
 func index(ctx *server.Context) {
 	r := ctx.Request
 	fail := r.FormValue("fail")
+	msg := "Hello World!"
+	code := 200
 	if fail != "" {
-		ctx.SendAndLogError(http.StatusBadRequest, "Received fail param!", fail)
-		return
+		msg := "Received fail param!"
+		ctx.LogError(msg)
+		code = 400
 	}
-	ctx.SendHTMLResponse(200, []byte("Hello World!"))
+	ctx.SendHTMLResponse(code, []byte(msg))
 }
 
 // SecuredControlller Says hello if secured
@@ -106,7 +109,6 @@ var SecuredControlller server.Controller = server.Controller{
 			return nil
 		}
 		msg := "secure query param wasn't set"
-		ctx.SendHTMLResponse(http.StatusBadRequest, []byte(msg))
 		return fmt.Errorf(msg)
 	},
 	Description: "Only executes if query param secure=true is set.",

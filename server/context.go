@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -31,10 +32,27 @@ type Context struct {
 	LogLevel           string
 }
 
-type errorResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Data    string `json:"data"`
+// JSONErrorResponse General format of error responses
+type JSONErrorResponse struct {
+	Code       int    `json:"code"`
+	Message    string `json:"message"`
+	LogMessage string `json:"log_message"`
+}
+
+func (jer JSONErrorResponse) Error() string {
+	return jer.LogMessage
+}
+
+func ErrToJSONErrorResponsePreserveCode(err error, message string) JSONErrorResponse {
+	var jerr JSONErrorResponse
+	if !errors.As(err, &jerr) {
+		jerr.Code = http.StatusInternalServerError
+		jerr.Message = "internal_server_error"
+	}
+	if message != "" {
+		jerr.LogMessage = fmt.Sprintf("%s, %s", message, err.Error())
+	}
+	return jerr
 }
 
 // GetService retrieves the specified service by name
@@ -79,53 +97,47 @@ func (ctx *Context) SendResponseHeader(header string, value string) {
 }
 
 // SendJSONResponse uses SendGenericResponse but sets the content type to application/json
-func (ctx *Context) SendJSONResponse(code int, response []byte) error {
-	return ctx.SendGenericResponse(code, response, "application/json")
+func (ctx *Context) SendJSONResponse(code int, response []byte) {
+	ctx.SendGenericResponse(code, response, "application/json")
 }
 
 // SendHTMLResponse uses SendGenericResponse but sets the content type to text/html
-func (ctx *Context) SendHTMLResponse(code int, response []byte) error {
-	return ctx.SendGenericResponse(code, response, "text/html")
+func (ctx *Context) SendHTMLResponse(code int, response []byte) {
+	ctx.SendGenericResponse(code, response, "text/html")
 }
 
 // SendGenericResponse sends the response using the context if the response was not sent already.
-func (ctx *Context) SendGenericResponse(code int, response []byte, contentType string) error {
+func (ctx *Context) SendGenericResponse(code int, response []byte, contentType string) {
+	var err error
 	if ctx.IsResponseSent {
-		return fmt.Errorf("Response for this request was already sent")
+		ctx.LogError("Response for this request was already sent")
+		return
 	}
 	ctx.SendResponseHeader("Content-Type", contentType)
 	ctx.sendCode(code)
 	w := ctx.responseWriter
-	_, err := w.Write(response)
+	_, err = w.Write(response)
 	if err != nil {
-		return fmt.Errorf("Error occured while sending response: %d, %s. Error: %w", code, response, err)
+		err = fmt.Errorf("Error occured while sending response: %d, %s. Error: %w", code, response, err)
+		ctx.LogError(err.Error())
 	}
 	ctx.IsResponseSent = true
-	return nil
+	return
 }
 
 func (ctx *Context) SendRedirect(newurl string, statusCode int) {
 	http.Redirect(ctx.responseWriter, ctx.Request, newurl, statusCode)
 }
 
-// SendAndLogError helper function that is specialized in sending back an error response to the client
-func (ctx *Context) SendAndLogError(code int, message string, data string) {
-	ctx.LogError(fmt.Sprintf("Error response: code: %d, message: %s, Data: %s", code, message, data))
-	var resp errorResponse = errorResponse{
-		Code:    code,
-		Message: message,
-		Data:    data,
-	}
-	content, err := json.Marshal(&resp)
+// SendJsonError sends a properly formatted error response
+func (ctx *Context) SendJsonError(err error) {
+	jerr := ErrToJSONErrorResponsePreserveCode(err, "")
+	ctx.LogError(fmt.Sprintf("Error response: code: %d, message: %s, log_message: %s", jerr.Code, jerr.Message, jerr.LogMessage))
+	content, err := json.Marshal(&jerr)
 	if err != nil {
-		ctx.LogError(fmt.Sprintf("Error occurred while marshalling error response: repsonse: %+v, error: %v\n", resp, err))
-		ctx.SendAndLogError(http.StatusInternalServerError, "Unable to marshal original error response", "")
+		ctx.SendJsonError(fmt.Errorf("Error occurred while marshalling error response: repsonse: %+v, error: %w\n", content, err))
 	}
-
-	err = ctx.SendJSONResponse(code, content)
-	if err != nil {
-		ctx.LogError(fmt.Sprintf("Error sending back error response: response: %+v, error: %+v\n", resp, err))
-	}
+	ctx.SendJSONResponse(jerr.Code, content)
 }
 
 func (ctx *Context) log(severity string, msg string) {

@@ -65,7 +65,7 @@ func TestSecuredController(t *testing.T) {
 		{
 			name:  "fail",
 			param: "secure=false",
-			code:  http.StatusBadRequest,
+			code:  http.StatusUnauthorized,
 		},
 	}
 
@@ -102,10 +102,10 @@ func TestStatusController(t *testing.T) {
 }
 
 func TestJWKValidation(t *testing.T) {
-	jwt := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Ik1qVkRORFl4UkVFNU5VSTNPRFJETlRGR05ETkRRVFpHTTBVMU9EZ3lNakV6TUROQ05UVTVPQSJ9.eyJodHRwczovL21heGJyYWluLmlvL3VzZXJfZW1haWwiOiJrcmlzdGluYS5zZWt1bGljQHEtc29mdHdhcmUuY29tIiwiaHR0cHM6Ly9tYXhicmFpbi5pby90ZW5hbnRfaWQiOiI2MTAiLCJodHRwczovL21heGJyYWluLmlvL3RlbmFudF9zdWJkb21haW4iOiJwYW1kdWYiLCJodHRwczovL21heGJyYWluLmlvL2lzX2NvY2twaXRfdXNlciI6dHJ1ZSwiaXNzIjoiaHR0cHM6Ly9tYXhicmFpbi1kZXYuZXUuYXV0aDAuY29tLyIsInN1YiI6ImF1dGgwfDVjM2M1ZGY5NDFhZmQ5N2NmYWZlNzQ1NyIsImF1ZCI6WyJodHRwczovL2NvY2twaXQubWF4YnJhaW4uaW8vYXBpLyIsImh0dHBzOi8vbWF4YnJhaW4tZGV2LmV1LmF1dGgwLmNvbS91c2VyaW5mbyJdLCJpYXQiOjE2MTY3NzgzOTMsImV4cCI6MTYxNjc4NTU5MywiYXpwIjoidmRnbWtRM25xamJXSDJZRE8wNnNPb1c1RXF2UGF4SngiLCJzY29wZSI6Im9wZW5pZCBwcm9maWxlIGVtYWlsIn0.QxBWAu8jdmoV48uKpZ7H54v8_dHWPLVp84f5PqRgn3sbslbwIts9z65Z3v2ZpjXAEsCLAC1tZqNh5iF_Gn0YjpvYv0cL3wMrp0JXFqybJG-59mbBxlSuFIgRcp4v2LncSrXoTixO1Yg0YS-J1KDrBtfAV2VjFAVP4u-CrH7_fdESO66TxUeX6oIgdEo1SKh-FTyLGyZvNHWrE6IHpJ2t_ROW5iCBqwF4qaHxOIFu3yasUBFlGwQ8l_i10vOSkBpme32Htmv0mnvvPHQdS72DWb3DgqZ-kEaZ-6QjGEgqA-pRKNRGm2kcru1s3L_4cWfyKU9JqtJxV8WtOBNSLLLQ7Q"
+	jwt := "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InIwTllfTFBiNWxKc0dRPT0iLCJ0eXAiOiJKV1QifQ.eyJhdWQiOlsiaHR0cHM6Ly9jb2NrcGl0Lm1heGJyYWluLmlvL2FwaS8iXSwiZXhwIjoxNjM0MDA3NTA1LCJpYXQiOjE2MzQwMDM5MDUsImlzcyI6Imh0dHBzOi8vbG9naW4uZGV2Lm1heGJyYWluLmlvLyIsImh0dHBzOi8vbWF4YnJhaW4uaW8vdXNlcl9lbWFpbCI6ImZyYW5rLmx5bmVyQG1heGJyYWluLmNvbSIsImh0dHBzOi8vbWF4YnJhaW4uaW8vdGVuYW50X2lkIjoiNjEwIiwiaHR0cHM6Ly9tYXhicmFpbi5pby90ZW5hbnRfc3ViZG9tYWluIjoicGFtZHVmIiwiaHR0cHM6Ly9tYXhicmFpbi5pby9pc19jb2NrcGl0X3VzZXIiOnRydWUsImh0dHBzOi8vbWF4YnJhaW4uaW8vaWRlbnRpdHlfaWQiOiI1YmZkNDRjOC05OTM2LTExZWItOTcyNy0wMDBkM2E4MzU2ZTkifQ.bghXkgoYskFuFTMg-SddKTmjHOghQxEDO4h6JUUwTGgS5Ci-GcRQkZX3rMEZYeFE-ZHzzokkpBZYH3xuX0UkuZ6aX7X91S3DUrfne--fgRuuHF0LdIdq_8RkRFpaJT33MgpoRPXD0tmuDM9p-BlFcIICUYw9mOqYfelCLldyUy_9nO04Qi4SXqfzoWfKv6J_AQQslFQNbOgEpLGPQXwQB_v0at9EK9OKYDPUBeCnCxc1HoNOtL0slDpxMPWH24SObXkyAt_I-FgFJ5C7rJG3bCiXU_ELjinH64T3TOKVdyaeDVrt0a-wVKOjE6dJOCtZ6QckZAXKoFJ2kreZZD0nhg"
 	request := httptest.NewRequest("GET", "/jwt.html", nil)
 	request.Header.Add("x-request-id", "request-id-from-header")
-	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
+	request.Header.Add("Authorization", jwt)
 	responseRecorder := httptest.NewRecorder()
 
 	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
@@ -114,7 +114,7 @@ func TestJWKValidation(t *testing.T) {
 	}
 	request = httptest.NewRequest("GET", "/jwt.html", nil)
 	request.Header.Add("x-request-id", "request-id-from-header")
-	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
+	request.Header.Add("Authorization", jwt)
 	responseRecorder = httptest.NewRecorder()
 
 	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
