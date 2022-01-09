@@ -89,6 +89,5 @@ var StatusController Controller = Controller{
 		}
 		html.WriteString("</table>\n")
 		ctx.SendHTMLResponse(http.StatusOK, []byte(html.String()))
-		return
 	},
 }

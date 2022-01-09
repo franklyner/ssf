@@ -31,7 +31,10 @@ func CreateRepository(c *Config) *Repository {
 	repo := Repository{
 		dbConfig: dbConf,
 	}
-	repo.init()
+	err := repo.init()
+	if err != nil {
+		panic(err)
+	}
 	return &repo
 }
 
@@ -48,13 +51,13 @@ func readDBConfig(c *Config) DBconfig {
 func (r *Repository) init() error {
 	gdb, err := gorm.Open(mysql.Open(r.dbConfig.DbURI), &gorm.Config{})
 	if err != nil {
-		return fmt.Errorf("Failed to open DB connection: %w", err)
+		return fmt.Errorf("failed to open DB connection: %w", err)
 	}
 	r.DB = gdb
 
 	db, err := gdb.DB()
 	if err != nil {
-		return fmt.Errorf("Failed to retrieve underlying sqldb object: %w", err)
+		return fmt.Errorf("failed to retrieve underlying sqldb object: %w", err)
 	}
 	db.SetMaxOpenConns(r.dbConfig.DbMaxDBConnections)
 
