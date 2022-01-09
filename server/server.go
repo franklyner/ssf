@@ -95,9 +95,17 @@ func (s *Server) SetRepository(repo *Repository) {
 	s.repository = repo
 }
 
+func (s *Server) GetRepository() *Repository {
+	return s.repository
+}
+
 // RegisterService registers a service to the server
 func (s *Server) RegisterService(name string, service interface{}) {
 	s.serviceMap[name] = service
+}
+
+func (s *Server) GetService(name string) interface{} {
+	return s.serviceMap[name]
 }
 
 // Start starts the previously initialized server
