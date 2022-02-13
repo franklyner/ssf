@@ -39,6 +39,7 @@ type Server struct {
 	serviceMap     map[string]interface{}
 	requestHandler http.Handler
 	LogLevel       string
+	pathPrefix     string
 }
 
 // GetControllers returns all controllers of the controller provider
@@ -50,10 +51,14 @@ func (s *Server) GetControllers() []Controller {
 // to be used by main methods and provide the list of ControllerProviders
 // the server instance is supposed to serve
 func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
+	return CreateServerWithPrefix(config, ctrProviders, "")
+}
+func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pathPrefix string) *Server {
 	server := Server{
 		config:      config,
 		controllers: []Controller{},
 		statusInfo:  CreateStatusInfo(),
+		pathPrefix:  pathPrefix,
 	}
 
 	r := mux.NewRouter()
@@ -160,7 +165,7 @@ func (s *Server) registerController(r *mux.Router, c Controller) {
 
 	ctrHandler := http.HandlerFunc(s.getControllerHandlerFunc(c))
 
-	r.Handle(c.Path, ctrHandler).Methods(c.Methods...)
+	r.Handle(s.pathPrefix+c.Path, ctrHandler).Methods(c.Methods...)
 	log.Printf("Registered controller %s", c.Name)
 }
 
