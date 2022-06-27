@@ -1,0 +1,12 @@
+[
+    {
+        "Name" : "sched_primary_1",
+        "IsPrimary" : true,
+        "Fields" : []
+    },
+    {
+        "Name" : "sched_type_1",
+        "IsPrimary" : false,
+        "Fields" : ["type"]
+    }
+]
