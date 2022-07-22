@@ -24,7 +24,7 @@ func initServer(config server.Config) *server.Server {
 		Name: config.Get("name"),
 	}}
 
-	server := server.CreateServer(config, ctrProviders)
+	server := server.CreateServerWithPrefix(config, ctrProviders, "/min")
 	server.RegisterService("hello", helloService{})
 	return server
 }

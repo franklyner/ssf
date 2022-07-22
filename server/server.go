@@ -16,30 +16,40 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"net/http/httptest"
 	_ "net/http/pprof"
 )
 
 // All config properties required for the server to run
 const (
-	ConfigPort            = "port"
-	ConfigReadTimeout     = "readTimeout"
-	ConfigWriteTimeout    = "writeTimeout"
-	ConfigLogLevel        = "loglevel"
-	ConfigEnableProfiling = "enable_profiling"
+	ConfigPort             = "port"
+	ConfigReadTimeout      = "readTimeout"
+	ConfigWriteTimeout     = "writeTimeout"
+	ConfigLogLevel         = "loglevel"
+	ConfigEnableProfiling  = "enable_profiling"
+	ConfigEnablePrometheus = "enable_prometheus"
+)
+
+var (
+	promHttpHist *prometheus.HistogramVec
 )
 
 // Server Generic server who is able to load a list of controllers from
 // multiple ControllerProviders
 type Server struct {
-	config         Config
-	controllers    []Controller
-	statusInfo     *StatusInformation
-	repository     *Repository
-	serviceMap     map[string]interface{}
-	requestHandler http.Handler
-	LogLevel       string
-	pathPrefix     string
+	config              Config
+	controllers         []Controller
+	statusInfo          *StatusInformation
+	repository          *Repository
+	serviceMap          map[string]interface{}
+	requestHandler      http.Handler
+	LogLevel            string
+	pathPrefix          string
+	isPrometheusEnabled bool
 }
 
 // GetControllers returns all controllers of the controller provider
@@ -71,15 +81,28 @@ func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pa
 		}
 	}
 
+	server.registerController(r, StatusController)
+
 	prof := config.Get(ConfigEnableProfiling)
 	if prof == "true" {
 		r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 		log.Println("Enabled profiling endpoints on /debug/pprof/")
 	}
 
-	r.NotFoundHandler = getNotFoundHandler()
+	prom := config.Get(ConfigEnablePrometheus)
+	if prom == "true" {
+		server.isPrometheusEnabled = true
+		promHttpHist = promauto.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "ssf_server_controller_requestcount",
+			Help:    "Counts the number of controller invokations",
+			Buckets: []float64{1, 10, 50, 100, 200, 400, 800, 1500, 3000, 10000, 30000, 60000},
+		}, []string{"controller"})
 
-	server.registerController(r, StatusController)
+		r.Handle(pathPrefix+"/metrics", promhttp.Handler())
+		log.Printf("Enabled prometheus metrics endpoint on %s/metrics", pathPrefix)
+	}
+
+	r.NotFoundHandler = getNotFoundHandler()
 	server.requestHandler = r
 
 	server.serviceMap = make(map[string]interface{})
@@ -191,8 +214,11 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 		}
 		c.Execute(ctx)
 		duration := time.Now().UnixNano() - start
-
 		ctx.LogDebug(formatExecLogMessage(r, duration, ctx.ResponseCode))
+		if s.isPrometheusEnabled {
+			observed := float64(duration) / 1000000 // calc in ms
+			promHttpHist.With(prometheus.Labels{"controller": c.Name}).Observe(observed)
+		}
 	}
 }
 
