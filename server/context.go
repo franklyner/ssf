@@ -51,6 +51,8 @@ func ErrToJSONErrorResponsePreserveCode(err error, message string) JSONErrorResp
 	}
 	if message != "" {
 		jerr.LogMessage = fmt.Sprintf("%s, %s", message, err.Error())
+	} else {
+		jerr.LogMessage = err.Error()
 	}
 	return jerr
 }
