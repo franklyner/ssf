@@ -36,7 +36,8 @@ type Context struct {
 type JSONErrorResponse struct {
 	Code       int    `json:"code"`
 	Message    string `json:"message"`
-	LogMessage string `json:"log_message"`
+	LogMessage string `json:"-"`
+	RequestID  string `json:"request_id"`
 }
 
 func (jer JSONErrorResponse) Error() string {
@@ -135,6 +136,7 @@ func (ctx *Context) SendRedirect(newurl string, statusCode int) {
 func (ctx *Context) SendJsonError(err error) {
 	jerr := ErrToJSONErrorResponsePreserveCode(err, "")
 	ctx.LogError(fmt.Sprintf("Error response: code: %d, message: %s, log_message: %s", jerr.Code, jerr.Message, jerr.LogMessage))
+	jerr.RequestID = ctx.RequestID
 	content, err := json.Marshal(&jerr)
 	if err != nil {
 		ctx.SendJsonError(fmt.Errorf("Error occurred while marshalling error response: repsonse: %+v, error: %w\n", content, err))
