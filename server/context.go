@@ -84,7 +84,7 @@ func (ctx *Context) SetRequestBodyManually(body []byte) {
 	ctx.requestBody = body
 }
 
-func (ctx *Context) sendCode(code int) {
+func (ctx *Context) sendCode(code int) 
 	if ctx.responseWriter != nil {
 		ctx.ResponseCode = code
 		ctx.responseWriter.WriteHeader(code)
