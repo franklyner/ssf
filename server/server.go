@@ -63,6 +63,9 @@ func (s *Server) GetControllers() []Controller {
 func CreateServer(config Config, ctrProviders []ControllerProvider) *Server {
 	return CreateServerWithPrefix(config, ctrProviders, "")
 }
+func BlankServer() *Server {
+	return &Server{serviceMap: make(map[string]interface{})}
+}
 func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pathPrefix string) *Server {
 	server := Server{
 		config:      config,
