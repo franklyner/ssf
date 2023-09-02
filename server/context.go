@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,8 +11,9 @@ import (
 )
 
 const (
-	LogLevelDebug = "debug"
-	LogLevelInfo  = "info"
+	LogLevelDebug       = "debug"
+	LogLevelInfo        = "info"
+	ContextKeyRequestID = "request_id"
 )
 
 // Context intantiated for every request
@@ -24,7 +26,6 @@ type Context struct {
 	ResponseCode       int
 	StatusInformation  *StatusInformation
 	requestBody        []byte
-	RequestID          string
 	Subdomain          string
 	serviceMap         map[string]interface{}
 	ControllerProvider ControllerProvider
@@ -136,7 +137,7 @@ func (ctx *Context) SendRedirect(newurl string, statusCode int) {
 func (ctx *Context) SendJsonError(err error) {
 	jerr := ErrToJSONErrorResponsePreserveCode(err, "")
 	ctx.LogError(fmt.Sprintf("Error response: code: %d, message: %s, log_message: %s", jerr.Code, jerr.Message, jerr.LogMessage))
-	jerr.RequestID = ctx.RequestID
+	jerr.RequestID = ctx.GetRequestID()
 	content, err := json.Marshal(&jerr)
 	if err != nil {
 		ctx.SendJsonError(fmt.Errorf("Error occurred while marshalling error response: repsonse: %+v, error: %w\n", content, err))
@@ -145,7 +146,7 @@ func (ctx *Context) SendJsonError(err error) {
 }
 
 func (ctx *Context) log(severity string, msg string) {
-	log.Printf(`{"req_id": "%s", "severity": "%s", "controller": "%s"} %s`, ctx.RequestID, severity, ctx.Controller.Name, msg)
+	log.Printf(`{"req_id": "%s", "severity": "%s", "controller": "%s"} %s`, ctx.GetRequestID(), severity, ctx.Controller.Name, msg)
 }
 
 // LogError logs an error
@@ -163,4 +164,21 @@ func (ctx *Context) LogDebug(msg string) {
 	if ctx.LogLevel == LogLevelDebug {
 		ctx.log("Debug", msg)
 	}
+}
+
+func (ctx *Context) GetRequestContextValue(key string) any {
+	return ctx.Request.Context().Value(key)
+}
+
+func (ctx *Context) SetRequestContextValue(key string, value any) {
+	newCtx := context.WithValue(ctx.Request.Context(), key, value)
+	ctx.Request = ctx.Request.WithContext(newCtx)
+}
+
+func (ctx *Context) GetRequestID() string {
+	return ctx.GetRequestContextValue(ContextKeyRequestID).(string)
+}
+
+func (ctx *Context) SetRequestID(id string) {
+	ctx.SetRequestContextValue(ContextKeyRequestID, id)
 }

@@ -171,19 +171,19 @@ func (s *Server) initContext(w http.ResponseWriter, r *http.Request, c Controlle
 		reqID = uuid.New().String()
 	}
 
-	context := Context{
+	context := &Context{
 		Server:             s,
 		Request:            r,
 		responseWriter:     w,
 		StatusInformation:  s.statusInfo,
 		Repository:         s.repository,
 		serviceMap:         s.serviceMap,
-		RequestID:          reqID,
 		LogLevel:           s.LogLevel,
 		ControllerProvider: c.controllerProvider,
 		Controller:         &c,
 	}
-	return &context
+	context.SetRequestID(reqID)
+	return context
 }
 
 func (s *Server) registerController(r *mux.Router, c Controller) {
