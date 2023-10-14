@@ -72,6 +72,15 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			Path:           "/loglevel",
 			ControllerFunc: logController,
 		},
+		{
+			Name:            "SubpathHandler",
+			Metric:          "SubpathHandler",
+			Methods:         []string{"GET"},
+			IsSecured:       false,
+			Path:            "/subpath",
+			ControllerFunc:  subPathController,
+			HandlesSubpaths: true,
+		},
 	}
 	return ctrl
 }
@@ -153,4 +162,9 @@ func logController(ctx *server.Context) {
 	ctx.LogInfo("This is an info message")
 	ctx.LogError("This is an error message")
 	ctx.SendHTMLResponse(http.StatusOK, []byte("Check your logfile!"))
+}
+
+func subPathController(ctx *server.Context) {
+	ctx.SendHTMLResponse(http.StatusOK, []byte(ctx.Request.URL.String()))
+
 }

@@ -14,6 +14,7 @@ type Controller struct {
 	Name               string
 	Metric             string
 	Path               string
+	HandlesSubpaths    bool
 	Methods            []string
 	IsSecured          bool
 	AuthFunc           func(ctx *Context) error

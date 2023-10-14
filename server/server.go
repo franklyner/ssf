@@ -194,8 +194,15 @@ func (s *Server) registerController(r *mux.Router, c Controller) {
 	s.controllers = append(s.controllers, c)
 
 	ctrHandler := http.HandlerFunc(s.getControllerHandlerFunc(c))
-
-	r.Handle(c.Path, ctrHandler).Methods(c.Methods...)
+	if c.HandlesSubpaths {
+		prefix := fmt.Sprintf("%s/", c.Path)
+		if len(s.pathPrefix) > 0 {
+			prefix = fmt.Sprintf("%s%s", s.pathPrefix, c.Path)
+		}
+		r.PathPrefix(c.Path).Handler(http.StripPrefix(prefix, ctrHandler)).Methods(c.Methods...)
+	} else {
+		r.Handle(c.Path, ctrHandler).Methods(c.Methods...)
+	}
 	log.Printf("Registered controller %s", c.Name)
 }
 
