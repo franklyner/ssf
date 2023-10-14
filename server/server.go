@@ -75,12 +75,16 @@ func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pa
 	}
 
 	r := mux.NewRouter()
+	s := r
+	if len(pathPrefix) > 0 {
+		s = r.PathPrefix(pathPrefix).Subrouter()
+	}
 
 	for _, ctrProv := range ctrProviders {
 		ctrList := ctrProv.GetControllers()
 		for _, ctr := range ctrList {
 			ctr.controllerProvider = ctrProv
-			server.registerController(r, ctr)
+			server.registerController(s, ctr)
 		}
 	}
 
@@ -88,7 +92,7 @@ func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pa
 
 	prof := config.Get(ConfigEnableProfiling)
 	if prof == "true" {
-		r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+		s.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
 		log.Println("Enabled profiling endpoints on /debug/pprof/")
 	}
 
@@ -101,11 +105,11 @@ func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pa
 			Buckets: []float64{1, 10, 50, 100, 200, 400, 800, 1500, 3000, 10000, 30000, 60000},
 		}, []string{"controller"})
 
-		r.Handle(pathPrefix+"/metrics", promhttp.Handler())
+		s.Handle("/metrics", promhttp.Handler())
 		log.Printf("Enabled prometheus metrics endpoint on %s/metrics", pathPrefix)
 	}
 
-	r.NotFoundHandler = getNotFoundHandler()
+	s.NotFoundHandler = getNotFoundHandler()
 	server.requestHandler = r
 
 	server.serviceMap = make(map[string]interface{})
@@ -191,7 +195,7 @@ func (s *Server) registerController(r *mux.Router, c Controller) {
 
 	ctrHandler := http.HandlerFunc(s.getControllerHandlerFunc(c))
 
-	r.Handle(s.pathPrefix+c.Path, ctrHandler).Methods(c.Methods...)
+	r.Handle(c.Path, ctrHandler).Methods(c.Methods...)
 	log.Printf("Registered controller %s", c.Name)
 }
 
