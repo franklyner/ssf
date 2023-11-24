@@ -88,7 +88,7 @@ func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pa
 		}
 	}
 
-	server.registerController(r, StatusController)
+	server.registerController(s, StatusController)
 
 	prof := config.Get(ConfigEnableProfiling)
 	if prof == "true" {

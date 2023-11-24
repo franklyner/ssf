@@ -17,7 +17,7 @@ var (
 )
 
 func TestIndexController(t *testing.T) {
-	request := httptest.NewRequest("GET", "/index.html", nil)
+	request := httptest.NewRequest("GET", PREFIX+"/index.html", nil)
 	responseRecorder := httptest.NewRecorder()
 
 	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
@@ -28,7 +28,7 @@ func TestIndexController(t *testing.T) {
 }
 
 func TestIndexControllerFail(t *testing.T) {
-	request := httptest.NewRequest("GET", "/index.html?fail=true", nil)
+	request := httptest.NewRequest("GET", PREFIX+"/index.html?fail=true", nil)
 	responseRecorder := httptest.NewRecorder()
 
 	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
@@ -39,7 +39,7 @@ func TestIndexControllerFail(t *testing.T) {
 }
 
 func TestServiceController(t *testing.T) {
-	request := httptest.NewRequest("GET", "/service.html", nil)
+	request := httptest.NewRequest("GET", PREFIX+"/service.html", nil)
 	responseRecorder := httptest.NewRecorder()
 
 	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
@@ -50,7 +50,7 @@ func TestServiceController(t *testing.T) {
 }
 
 func TestSecuredController(t *testing.T) {
-	baseURI := "/secured.html?"
+	baseURI := PREFIX + "/secured.html?"
 
 	ts := []struct {
 		name  string
@@ -84,7 +84,7 @@ func TestSecuredController(t *testing.T) {
 }
 
 func TestStatusController(t *testing.T) {
-	request := httptest.NewRequest("GET", "/status", nil)
+	request := httptest.NewRequest("GET", PREFIX+"/status", nil)
 	request.Header.Add("x-request-id", "request-id-from-header")
 	responseRecorder := httptest.NewRecorder()
 
@@ -96,14 +96,14 @@ func TestStatusController(t *testing.T) {
 
 	body, err := ioutil.ReadAll(responseRecorder.Result().Body)
 	if err != nil {
-		t.Errorf("Failed to read response body: %w", err)
+		t.Errorf("Failed to read response body: %s", err)
 	}
 	log.Print(string(body))
 }
 
 func TestJWKValidation(t *testing.T) {
 	jwt := "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6InIwTllfTFBiNWxKc0dRPT0iLCJ0eXAiOiJKV1QifQ.eyJhdWQiOlsiaHR0cHM6Ly9jb2NrcGl0Lm1heGJyYWluLmlvL2FwaS8iXSwiZXhwIjoxNjM0MDA3NTA1LCJpYXQiOjE2MzQwMDM5MDUsImlzcyI6Imh0dHBzOi8vbG9naW4uZGV2Lm1heGJyYWluLmlvLyIsImh0dHBzOi8vbWF4YnJhaW4uaW8vdXNlcl9lbWFpbCI6ImZyYW5rLmx5bmVyQG1heGJyYWluLmNvbSIsImh0dHBzOi8vbWF4YnJhaW4uaW8vdGVuYW50X2lkIjoiNjEwIiwiaHR0cHM6Ly9tYXhicmFpbi5pby90ZW5hbnRfc3ViZG9tYWluIjoicGFtZHVmIiwiaHR0cHM6Ly9tYXhicmFpbi5pby9pc19jb2NrcGl0X3VzZXIiOnRydWUsImh0dHBzOi8vbWF4YnJhaW4uaW8vaWRlbnRpdHlfaWQiOiI1YmZkNDRjOC05OTM2LTExZWItOTcyNy0wMDBkM2E4MzU2ZTkifQ.bghXkgoYskFuFTMg-SddKTmjHOghQxEDO4h6JUUwTGgS5Ci-GcRQkZX3rMEZYeFE-ZHzzokkpBZYH3xuX0UkuZ6aX7X91S3DUrfne--fgRuuHF0LdIdq_8RkRFpaJT33MgpoRPXD0tmuDM9p-BlFcIICUYw9mOqYfelCLldyUy_9nO04Qi4SXqfzoWfKv6J_AQQslFQNbOgEpLGPQXwQB_v0at9EK9OKYDPUBeCnCxc1HoNOtL0slDpxMPWH24SObXkyAt_I-FgFJ5C7rJG3bCiXU_ELjinH64T3TOKVdyaeDVrt0a-wVKOjE6dJOCtZ6QckZAXKoFJ2kreZZD0nhg"
-	request := httptest.NewRequest("GET", "/jwt.html", nil)
+	request := httptest.NewRequest("GET", PREFIX+"/jwt.html", nil)
 	request.Header.Add("x-request-id", "request-id-from-header")
 	request.Header.Add("Authorization", jwt)
 	responseRecorder := httptest.NewRecorder()
@@ -128,22 +128,22 @@ func TestLogLevelController(t *testing.T) {
 
 	config.SetProperty(server.ConfigLogLevel, "info")
 	fmt.Println("Loglevel set to info")
-	srv := initServer(config)
-	request := httptest.NewRequest("GET", "/loglevel", nil)
+	serv := initServer(config)
+	request := httptest.NewRequest("GET", PREFIX+"/loglevel", nil)
 	responseRecorder := httptest.NewRecorder()
 
-	srv.GetMainHandler().ServeHTTP(responseRecorder, request)
+	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
 
 	if responseRecorder.Code != 200 {
 		t.Errorf("LogLevelController returned code %d. Expected 200", responseRecorder.Code)
 	}
 	config.SetProperty(server.ConfigLogLevel, "debug")
 	fmt.Println("Loglevel set to debug")
-	srv = initServer(config)
-	request = httptest.NewRequest("GET", "/loglevel", nil)
+	serv = initServer(config)
+	request = httptest.NewRequest("GET", PREFIX+"/loglevel", nil)
 	responseRecorder = httptest.NewRecorder()
 
-	srv.GetMainHandler().ServeHTTP(responseRecorder, request)
+	serv.GetMainHandler().ServeHTTP(responseRecorder, request)
 
 	if responseRecorder.Code != 200 {
 		t.Errorf("LogLevelController returned code %d. Expected 200", responseRecorder.Code)

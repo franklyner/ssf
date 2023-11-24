@@ -9,6 +9,8 @@ import (
 	"github.com/franklyner/ssf/server"
 )
 
+const PREFIX = "/min"
+
 var (
 	ConfigProperties []string = []string{server.ConfigPort, server.ConfigReadTimeout, server.ConfigWriteTimeout, "name"}
 )
@@ -24,7 +26,7 @@ func initServer(config server.Config) *server.Server {
 		Name: config.Get("name"),
 	}}
 
-	server := server.CreateServerWithPrefix(config, ctrProviders, "/min")
+	server := server.CreateServerWithPrefix(config, ctrProviders, PREFIX)
 	server.RegisterService("hello", helloService{})
 	return server
 }
