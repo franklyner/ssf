@@ -120,11 +120,14 @@ func (ctx *Context) SendGenericResponse(code int, response []byte, contentType s
 	ctx.SendResponseHeader("Content-Type", contentType)
 	ctx.sendCode(code)
 	w := ctx.responseWriter
-	_, err = w.Write(response)
-	if err != nil {
-		err = fmt.Errorf("Error occured while sending response: %d, %s. Error: %w", code, response, err)
-		ctx.LogError(err.Error())
+	if w != nil {
+		_, err = w.Write(response)
+		if err != nil {
+			err = fmt.Errorf("Error occured while sending response: %d, %s. Error: %w", code, response, err)
+			ctx.LogError(err.Error())
+		}
 	}
+
 	ctx.IsResponseSent = true
 	return
 }

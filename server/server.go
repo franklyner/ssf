@@ -190,6 +190,13 @@ func (s *Server) initContext(w http.ResponseWriter, r *http.Request, c Controlle
 	return context
 }
 
+func (s *Server) InitNonRequestContext() *Context {
+	req := httptest.NewRequest(http.MethodTrace, "/no-op", nil)
+	return s.initContext(nil, req, Controller{
+		Name: "no-controller",
+	})
+}
+
 func (s *Server) registerController(r *mux.Router, c Controller) {
 	s.controllers = append(s.controllers, c)
 
