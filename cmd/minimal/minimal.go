@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"reflect"
+	"time"
 
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/franklyner/ssf/server"
@@ -18,7 +20,17 @@ var (
 func main() {
 	cfg := server.CreateConfig("./cmd/minimal", "minimal", ConfigProperties)
 	server := initServer(cfg)
+	go generateOtherMetric(server)
 	server.Start()
+}
+
+func generateOtherMetric(srv *server.Server) {
+	stats := srv.InitNonRequestContext().StatusInformation
+	for {
+		time.Sleep(1 * time.Second)
+		value := rand.Intn(1000)
+		stats.SetMetric("Other Metric", value)
+	}
 }
 
 func initServer(config server.Config) *server.Server {
