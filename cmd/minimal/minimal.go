@@ -30,6 +30,8 @@ func generateOtherMetric(srv *server.Server) {
 		time.Sleep(1 * time.Second)
 		value := rand.Intn(1000)
 		stats.SetMetric("Other Metric", value)
+		stats.SetMetric("Modulo 15", value%15)
+		stats.SetMetric("And now 13", value%13)
 	}
 }
 

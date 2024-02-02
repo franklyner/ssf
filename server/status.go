@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -93,8 +94,13 @@ var StatusController Controller = Controller{
 					<th>Metric</th>
 					<th>Value</th>
 				</tr>`)
-		for metric, value := range stats {
-			html.WriteString(fmt.Sprintf("<tr><td>%s</td><td align='center'>%d</td></tr>", metric, value))
+		sortedMetrics := make([]string, 0, len(stats))
+		for metric, _ := range stats {
+			sortedMetrics = append(sortedMetrics, metric)
+		}
+		slices.Sort(sortedMetrics)
+		for _, metric := range sortedMetrics {
+			html.WriteString(fmt.Sprintf("<tr><td>%s</td><td align='center'>%d</td></tr>", metric, stats[metric]))
 		}
 		html.WriteString("</table>\n")
 
