@@ -157,16 +157,34 @@ func (ctx *Context) LogError(msg string) {
 	ctx.log("Error", msg)
 }
 
-// LogInfo logs an error
+// LogErrorf logs an error with formatting
+func (ctx *Context) LogErrorf(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	ctx.LogError(msg)
+}
+
+// LogInfo logs an info message
 func (ctx *Context) LogInfo(msg string) {
 	ctx.log("Info", msg)
 }
 
-// LogDebug logs an error
+// LogInfof logs an info message with formatting
+func (ctx *Context) LogInfof(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	ctx.LogInfo(msg)
+}
+
+// LogDebug logs an debug message
 func (ctx *Context) LogDebug(msg string) {
 	if ctx.LogLevel == LogLevelDebug {
 		ctx.log("Debug", msg)
 	}
+}
+
+// LogInfof logs an debug message with formatting
+func (ctx *Context) LogDebugf(format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	ctx.LogDebug(msg)
 }
 
 func (ctx *Context) GetRequestContextValue(key string) any {
