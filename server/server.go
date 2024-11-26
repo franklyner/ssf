@@ -263,14 +263,21 @@ func getNotFoundHandler() http.Handler {
 }
 
 func GetJwtAuth(issuer string, customValidator func(claims jwt.MapClaims) error) func(ctx *Context) error {
-	jmw := getJWTMiddlewareHandler(issuer, customValidator)
+	jmw := getJWTMiddlewareHandler(issuer, customValidator, jwtmiddleware.FromAuthHeader)
+	return func(ctx *Context) error {
+		err := jmw.CheckJWT(httptest.NewRecorder(), ctx.Request)
+		return err
+	}
+}
+func GetJwtAuthFromQuery(issuer string, customValidator func(claims jwt.MapClaims) error, parameterName string) func(ctx *Context) error {
+	jmw := getJWTMiddlewareHandler(issuer, customValidator, jwtmiddleware.FromParameter(parameterName))
 	return func(ctx *Context) error {
 		err := jmw.CheckJWT(httptest.NewRecorder(), ctx.Request)
 		return err
 	}
 }
 
-func getJWTMiddlewareHandler(issuer string, customValidator func(claims jwt.MapClaims) error) *jwtmiddleware.JWTMiddleware {
+func getJWTMiddlewareHandler(issuer string, customValidator func(claims jwt.MapClaims) error, extractor func(r *http.Request) (string, error)) *jwtmiddleware.JWTMiddleware {
 	jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
 		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
 			claims := token.Claims.(jwt.MapClaims)
@@ -297,6 +304,7 @@ func getJWTMiddlewareHandler(issuer string, customValidator func(claims jwt.MapC
 			return result, nil
 		},
 		SigningMethod: jwt.SigningMethodRS256,
+		Extractor:     extractor,
 	})
 	return jwtMiddleware
 }
