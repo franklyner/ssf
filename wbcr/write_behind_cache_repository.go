@@ -198,18 +198,29 @@ func (e *ExtendablePersister[K, V, PT]) Delete(ctx *server.Context, key K) error
 	return e.IntDelete(ctx, key)
 }
 
-type GormPersister[K comparable, V any, PT Keyer[K, V]] struct{}
+type GormPersister[K comparable, V any, PT Keyer[K, V]] struct {
+	repository *server.Repository
+}
+
+func (p *GormPersister[K, V, PT]) SetRepository(repo *server.Repository) {
+	p.repository = repo
+}
 
 func (p *GormPersister[K, V, PT]) RunMigration(repository *server.Repository) {
+	p.SetRepository(repository)
+	p.RunMigrationInternalRepo()
+}
+
+func (p *GormPersister[K, V, PT]) RunMigrationInternalRepo() {
 	val := new(V)
-	err := repository.DB.AutoMigrate(*val)
+	err := p.repository.DB.AutoMigrate(*val)
 	if err != nil {
 		panic(err) // fail fast as this happens on startup
 	}
 }
 
 func (p *GormPersister[K, V, PT]) Create(ctx *server.Context, value PT) (V, error) {
-	db := ctx.Repository.DB
+	db := p.repository.DB
 	res := db.Create(value)
 	if res.Error != nil {
 		e := new(V)
@@ -221,7 +232,7 @@ func (p *GormPersister[K, V, PT]) Create(ctx *server.Context, value PT) (V, erro
 	return value.GetValue(), nil
 }
 func (p *GormPersister[K, V, PT]) Update(ctx *server.Context, value PT) (V, error) {
-	db := ctx.Repository.DB
+	db := p.repository.DB
 	empty := new(V)
 	res := db.Save(&value) // Save is an upsert
 	if res.Error != nil {
@@ -231,7 +242,7 @@ func (p *GormPersister[K, V, PT]) Update(ctx *server.Context, value PT) (V, erro
 	return value.GetValue(), nil
 }
 func (p *GormPersister[K, V, PT]) Get(ctx *server.Context, key K) (V, error) {
-	db := ctx.Repository.DB
+	db := p.repository.DB
 	empty := new(V)
 	value := new(PT)
 	v := *value
@@ -246,7 +257,7 @@ func (p *GormPersister[K, V, PT]) Get(ctx *server.Context, key K) (V, error) {
 	return v.GetValue(), nil
 }
 func (p *GormPersister[K, V, PT]) GetAll(ctx *server.Context) ([]PT, error) {
-	db := ctx.Repository.DB
+	db := p.repository.DB
 	all := []PT{}
 	res := db.Find(&all)
 	if res.Error != nil {
@@ -255,7 +266,7 @@ func (p *GormPersister[K, V, PT]) GetAll(ctx *server.Context) ([]PT, error) {
 	return all, nil
 }
 func (p *GormPersister[K, V, PT]) Delete(ctx *server.Context, key K) error {
-	db := ctx.Repository.DB
+	db := p.repository.DB
 	v := new(V)
 	res := db.Delete(v, key)
 	if res.Error != nil {
