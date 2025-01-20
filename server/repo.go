@@ -28,6 +28,18 @@ type DBconfig struct {
 // CreateRepository intizializes a repository
 func CreateRepository(c *Config) *Repository {
 	dbConf := readDBConfig(c)
+	return internalCreateRepository(dbConf)
+}
+
+func CreateRepositoryFromParams(dbURI string, maxConn int) *Repository {
+	dbConf := DBconfig{
+		DbURI:              dbURI,
+		DbMaxDBConnections: maxConn,
+	}
+	return internalCreateRepository(dbConf)
+}
+
+func internalCreateRepository(dbConf DBconfig) *Repository {
 	repo := Repository{
 		dbConfig: dbConf,
 	}
