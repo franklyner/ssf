@@ -27,6 +27,7 @@ type Keyer[K comparable, V any] interface {
 	SetKey(key K)
 	GetKey() K
 	GetValue() V
+	GetKeyName() string
 	*V // non-interface type constraint
 }
 
@@ -246,7 +247,8 @@ func (p *GormPersister[K, V, PT]) Get(ctx *server.Context, key K) (V, error) {
 	empty := new(V)
 	value := new(PT)
 	v := *value
-	res := db.First(&v, key)
+	keyName := v.GetKeyName()
+	res := db.First(&v, keyName, key)
 
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
@@ -268,7 +270,8 @@ func (p *GormPersister[K, V, PT]) GetAll(ctx *server.Context) ([]PT, error) {
 func (p *GormPersister[K, V, PT]) Delete(ctx *server.Context, key K) error {
 	db := p.repository.DB
 	v := new(V)
-	res := db.Delete(v, key)
+	keyName := (*new(PT)).GetKeyName()
+	res := db.Delete(v, keyName, key)
 	if res.Error != nil {
 		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			return fmt.Errorf("error deleting record with key %v: %w", key, res.Error)
