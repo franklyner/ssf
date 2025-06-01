@@ -81,6 +81,14 @@ func (ctx *Context) GetRequestBody() ([]byte, error) {
 	return ctx.requestBody, nil
 }
 
+// GetResponseWriter returns the response writer if it was set
+func (ctx *Context) GetResponseWriter() http.ResponseWriter {
+	if ctx.responseWriter == nil {
+		return nil
+	}
+	return ctx.responseWriter
+}
+
 // SetRequestBodyManually sets the body. Mainly used for testing
 func (ctx *Context) SetRequestBodyManually(body []byte) {
 	ctx.requestBody = body
