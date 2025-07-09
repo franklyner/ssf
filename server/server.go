@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
@@ -309,46 +309,63 @@ func getJWTMiddlewareHandler(issuer string, customValidator func(claims jwt.MapC
 	return jwtMiddleware
 }
 
+type keyMapEntry struct {
+	Expiration time.Time
+	JWKS       Jwks
+}
+
 // ok to cache globally as multiple server instance can share the same cache
-var keyMap map[string][]byte = make(map[string][]byte)
+var keyMap map[string]keyMapEntry = make(map[string]keyMapEntry)
+var mutex sync.Mutex
 
 func getPemCert(token *jwt.Token) (string, error) {
 	cert := ""
 
 	claims := token.Claims.(jwt.MapClaims)
-	issuer := claims["iss"].(string)
-	if _, ok := keyMap[issuer]; !ok {
-		url := claims["iss"].(string) + ".well-known/jwks.json"
+	issuer, worked := claims["iss"].(string)
+	if !worked {
+		return "", fmt.Errorf("issuer doesn't seem to be a string %+v", token)
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	entry, ok := keyMap[issuer]
+	if !ok || entry.Expiration.Before(time.Now()) {
+		log.Default().Printf("loading jwks of issuer %s", issuer)
+		url := issuer + ".well-known/jwks.json"
 
 		resp, err := http.Get(url)
 
 		if err != nil {
-			return cert, err
+			return "", fmt.Errorf("error fetching jwks for issuer %s: %w", claims["iss"].(string), err)
 		}
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return cert, nil
+			return "", fmt.Errorf("error reading body of jwks response for issuer %s: %w", issuer, err)
 		}
-		keyMap[issuer] = body
+		var jwks = Jwks{}
+		err = json.Unmarshal(body, &jwks)
+		if err != nil {
+			return "", fmt.Errorf("error unmarshaling jwks: %w", err)
+		}
+		entry = keyMapEntry{
+			JWKS:       jwks,
+			Expiration: time.Now().Add(4 * time.Hour),
+		}
+		keyMap[issuer] = entry
 	}
 
-	reader := bytes.NewReader(keyMap[issuer])
-	var jwks = Jwks{}
-	err := json.NewDecoder(reader).Decode(&jwks)
-
-	if err != nil {
-		return cert, err
-	}
+	jwks := entry.JWKS
 
 	for k := range jwks.Keys {
 		if token.Header["kid"] == jwks.Keys[k].Kid {
-			fmt.Printf("JWKS endpoint result: found kid: %s\n", jwks.Keys[k].Kid)
+			//			fmt.Printf("JWKS endpoint result: found kid: %s\n", jwks.Keys[k].Kid)
 			cert = "-----BEGIN CERTIFICATE-----\n" + jwks.Keys[k].X5c[0] + "\n-----END CERTIFICATE-----"
 		}
 	}
 
 	if cert == "" {
-		err := errors.New("unable to find appropriate key")
+		err := fmt.Errorf("unable to find appropriate key %s in jwks %+v for token %+v. Keymap entry: %+v", token.Header["kid"], jwks, token, entry)
 		return cert, err
 	}
 
