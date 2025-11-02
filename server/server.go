@@ -13,6 +13,7 @@ import (
 
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
@@ -32,6 +33,12 @@ const (
 	ConfigLogLevel         = "loglevel"
 	ConfigEnableProfiling  = "enable_profiling"
 	ConfigEnablePrometheus = "enable_prometheus"
+	ConfigEnableOpenAPI    = "enable_openapi"
+	ConfigBaseURL          = "base_url"
+	ConfigAppName          = "openapi_app_name"
+	ConfigAppDescription   = "openapi_app_description"
+	ConfigAppVersion       = "openapi_app_version"
+	ConfigSecurityScheme   = "openapi_security_scheme"
 )
 
 var (
@@ -50,6 +57,8 @@ type Server struct {
 	LogLevel            string
 	pathPrefix          string
 	isPrometheusEnabled bool
+	openApiDocs         *openapi3.T
+	baseURL             string
 }
 
 // GetControllers returns all controllers of the controller provider
@@ -74,6 +83,8 @@ func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pa
 		pathPrefix:  pathPrefix,
 	}
 
+	server.handleLogLevel()
+
 	r := mux.NewRouter()
 	s := r
 	if len(pathPrefix) > 0 {
@@ -88,41 +99,64 @@ func CreateServerWithPrefix(config Config, ctrProviders []ControllerProvider, pa
 		}
 	}
 
+	s.NotFoundHandler = getNotFoundHandler()
+
 	server.registerController(s, StatusController)
 
-	prof := config.Get(ConfigEnableProfiling)
-	if prof == "true" {
-		s.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
-		log.Println("Enabled profiling endpoints on /debug/pprof/")
-	}
+	server.handleProfiling(r)
 
-	prom := config.Get(ConfigEnablePrometheus)
-	if prom == "true" {
-		server.isPrometheusEnabled = true
-		promHttpHist = promauto.NewHistogramVec(prometheus.HistogramOpts{
-			Name:    "ssf_server_controller_requestcount",
-			Help:    "Counts the number of controller invokations",
-			Buckets: []float64{1, 10, 50, 100, 200, 400, 800, 1500, 3000, 10000, 30000, 60000},
-		}, []string{"controller"})
+	server.handlePrometheus(s)
 
-		s.Handle("/metrics", promhttp.Handler())
-		log.Printf("Enabled prometheus metrics endpoint on %s/metrics", pathPrefix)
-	}
+	server.handleOpenAPI(s)
 
-	s.NotFoundHandler = getNotFoundHandler()
 	server.requestHandler = r
 
 	server.serviceMap = make(map[string]interface{})
 
-	ll := config.Get(ConfigLogLevel)
+	if server.LogLevel == LogLevelDebug {
+		r.Walk(func(route *mux.Route, _ *mux.Router, _ []*mux.Route) error {
+			t, _ := route.GetPathTemplate()
+			m, _ := route.GetMethods()
+			log.Printf("route: %q methods=%v", t, m)
+			return nil
+		})
+	}
+
+	return &server
+}
+
+func (s *Server) handleLogLevel() {
+	ll := s.config.Get(ConfigLogLevel)
 	if ll == "" {
 		ll = LogLevelInfo
 	} else if (strings.ToLower(ll) != LogLevelDebug) && (strings.ToLower(ll) != LogLevelInfo) {
 		log.Panicf("Invalid loglevel provided. Expecting %s or %s", LogLevelDebug, LogLevelInfo)
 	}
 
-	server.LogLevel = ll
-	return &server
+	s.LogLevel = ll
+}
+
+func (s *Server) handleProfiling(r *mux.Router) {
+	prof := s.config.Get(ConfigEnableProfiling)
+	if prof == "true" {
+		r.PathPrefix("/debug/pprof/").Handler(http.DefaultServeMux)
+		log.Println("Enabled profiling endpoints on /debug/pprof/")
+	}
+}
+
+func (s *Server) handlePrometheus(r *mux.Router) {
+	prom := s.config.Get(ConfigEnablePrometheus)
+	if prom == "true" {
+		s.isPrometheusEnabled = true
+		promHttpHist = promauto.NewHistogramVec(prometheus.HistogramOpts{
+			Name:    "ssf_server_controller_requestcount",
+			Help:    "Counts the number of controller invokations",
+			Buckets: []float64{1, 10, 50, 100, 200, 400, 800, 1500, 3000, 10000, 30000, 60000},
+		}, []string{"controller"})
+
+		r.Handle("/metrics", promhttp.Handler())
+		log.Printf("Enabled prometheus metrics endpoint on %s/metrics", s.pathPrefix)
+	}
 }
 
 // SetRepository sets the repository if one is being used.
@@ -136,6 +170,7 @@ func (s *Server) GetRepository() *Repository {
 
 // RegisterService registers a service to the server
 func (s *Server) RegisterService(name string, service interface{}) {
+	log.Printf("Registering service %s of type %T", name, service)
 	s.serviceMap[name] = service
 }
 
@@ -252,9 +287,9 @@ func formatExecLogMessage(r *http.Request, duration int64, code int) string {
 func getNotFoundHandler() http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		code := http.StatusNotFound
-		log.Println(formatExecLogMessage(r, 0, code) + " NOT FOUND")
+		log.Println(formatExecLogMessage(r, 0, code) + ": No controller found for this path!")
 		w.WriteHeader(code)
-		fmt.Fprint(w, "Not Found!")
+		fmt.Fprint(w, "No controller found for this path!")
 	}
 
 	// http.HandlerFunc wraps a function so that it

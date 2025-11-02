@@ -4,5 +4,11 @@
     "writeTimeout" : "2m",
     "name" : "Simple Server Framework",
     "loglevel" : "debug",
-    "enable_prometheus" : "true"
+    "enable_prometheus" : "true",
+    "enable_openapi" : "true",
+    "base_url" : "http://localhost:5050",
+    "openapi_app_name" : "My API",
+    "openapi_app_description" : "This is my API",
+    "openapi_app_version" : "1.0.0",
+    "openapi_security_scheme" : "bearerAuth"
 }

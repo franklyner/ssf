@@ -59,6 +59,21 @@ func (m minControllerProvider) GetControllers() []server.Controller {
 			Path:           "/index.html",
 			ControllerFunc: index,
 			Description:    "Basic hello world. returns code bad request if query param fail is set to any non-empty value",
+			OpenAPISpec: &server.OASpec{
+				OperationID: "getIndex",
+				Tags:        []string{"Index"},
+				Summary:     "Returns Hello World or Bad Request",
+				Responses: []server.OAResponse{
+					{
+						StatusCode:  200,
+						Description: "Successful response with Hello World",
+					},
+					{
+						StatusCode:  400,
+						Description: "Bad Request if query param fail is set",
+					},
+				},
+			},
 		},
 		SecuredControlller,
 		{

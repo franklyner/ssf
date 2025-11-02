@@ -16,7 +16,7 @@ type Config struct {
 	p map[string]string
 }
 
-// Get returns a cached property value. Panics if the property doesn't exist
+// Get returns a cached property value.
 func (c *Config) Get(property string) string {
 	val := c.p[property]
 	if val == "" && viper.IsSet(property) {
@@ -26,7 +26,7 @@ func (c *Config) Get(property string) string {
 	return val
 }
 
-// GetInt fetches the property as string and attempts at parsing it as duration string
+// GetInt fetches the property as string and attempts at parsing it as int
 func (c *Config) GetInt(property string) int {
 	sInt := c.Get(property)
 	if sInt == "" {
