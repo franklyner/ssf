@@ -1,17 +1,19 @@
 module github.com/franklyner/ssf
 
-go 1.22.5
-
-toolchain go1.24.5
+go 1.24.5
 
 require (
 	github.com/auth0/go-jwt-middleware v1.0.1
 	github.com/couchbase/gocb/v2 v2.9.1
 	github.com/form3tech-oss/jwt-go v3.2.5+incompatible
+	github.com/getkin/kin-openapi v0.133.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
+	github.com/newrelic/go-agent/v3 v3.36.0
+	github.com/newrelic/go-agent/v3/integrations/nrmysql v1.2.2
 	github.com/prometheus/client_golang v1.19.1
 	github.com/spf13/viper v1.19.0
+	github.com/swaggo/http-swagger v1.3.4
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.25.11
 )
@@ -26,7 +28,6 @@ require (
 	github.com/couchbase/goprotostellar v1.0.2 // indirect
 	github.com/couchbaselabs/gocbconnstr/v2 v2.0.0-20240607131231-fb385523de28 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/getkin/kin-openapi v0.133.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -60,7 +61,6 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
-	github.com/swaggo/http-swagger v1.3.4 // indirect
 	github.com/swaggo/swag v1.8.1 // indirect
 	github.com/woodsbury/decimal128 v1.3.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.53.0 // indirect

@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
+
+	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
 const (
@@ -31,6 +33,8 @@ type Context struct {
 	ControllerProvider ControllerProvider
 	Controller         *Controller
 	LogLevel           string
+	NewRelicApp        *newrelic.Application
+	NewRelicTxn        *newrelic.Transaction
 }
 
 // JSONErrorResponse General format of error responses
@@ -68,10 +72,10 @@ func (ctx *Context) GetService(name string) interface{} {
 	return fmt.Errorf("No service with name %s found", name)
 }
 
-// GetRequestBody readx the full body and returns it
+// GetRequestBody reads the full body and returns it
 func (ctx *Context) GetRequestBody() ([]byte, error) {
 	if len(ctx.requestBody) == 0 {
-		body, err := ioutil.ReadAll(ctx.Request.Body)
+		body, err := io.ReadAll(ctx.Request.Body)
 		defer ctx.Request.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("Error while reading request body: %w", err)
@@ -137,7 +141,6 @@ func (ctx *Context) SendGenericResponse(code int, response []byte, contentType s
 	}
 
 	ctx.IsResponseSent = true
-	return
 }
 
 func (ctx *Context) SendRedirect(newurl string, statusCode int) {
@@ -210,4 +213,14 @@ func (ctx *Context) GetRequestID() string {
 
 func (ctx *Context) SetRequestID(id string) {
 	ctx.SetRequestContextValue(ContextKeyRequestID, id)
+}
+
+// GetNewRelicApp returns the configured NR app if present.
+func (ctx *Context) GetNewRelicApp() *newrelic.Application {
+	return ctx.NewRelicApp
+}
+
+// GetNewRelicTxn returns the NR transaction if one was started for this request.
+func (ctx *Context) GetNewRelicTxn() *newrelic.Transaction {
+	return ctx.NewRelicTxn
 }

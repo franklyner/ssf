@@ -33,3 +33,8 @@ Some things come for free:
 * Some easy to use methods to send html and json responses
 * Easy testability: Ther server exposes a GetMainHandler() function that gives access to the main request handler which can then be used for unit testing.
 * A status page that gives an overview of how many times each controller has been called and since when the server is running.
+
+## New Relic (optional)
+- Initialize your New Relic app in the caller and inject it after `CreateServer` and before `Start` using `SetNewRelicApp(app)`.
+- When set, each controller invocation runs inside a NR web transaction and MySQL calls (via the repository) are instrumented through `nrmysql` automatically.
+- If you do not set the app, nothing changes for existing users.

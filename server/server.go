@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/newrelic/go-agent/v3/newrelic"
+
 	jwtmiddleware "github.com/auth0/go-jwt-middleware"
 	"github.com/form3tech-oss/jwt-go"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -59,6 +61,7 @@ type Server struct {
 	isPrometheusEnabled bool
 	openApiDocs         *openapi3.T
 	baseURL             string
+	nrApp               *newrelic.Application
 }
 
 // GetControllers returns all controllers of the controller provider
@@ -162,6 +165,12 @@ func (s *Server) handlePrometheus(r *mux.Router) {
 // SetRepository sets the repository if one is being used.
 func (s *Server) SetRepository(repo *Repository) {
 	s.repository = repo
+	if s.nrApp != nil {
+		err := s.repository.SetNewRelicApp(s.nrApp)
+		if err != nil {
+			log.Printf("failed to enable new relic on repository: %v", err)
+		}
+	}
 }
 
 func (s *Server) GetRepository() *Repository {
@@ -176,6 +185,17 @@ func (s *Server) RegisterService(name string, service interface{}) {
 
 func (s *Server) GetService(name string) interface{} {
 	return s.serviceMap[name]
+}
+
+// SetNewRelicApp enables New Relic instrumentation if an app is provided.
+func (s *Server) SetNewRelicApp(app *newrelic.Application) {
+	s.nrApp = app
+	if s.repository != nil {
+		err := s.repository.SetNewRelicApp(app)
+		if err != nil {
+			log.Printf("failed to enable new relic on repository: %v", err)
+		}
+	}
 }
 
 // Start starts the previously initialized server
@@ -218,10 +238,27 @@ func (s *Server) initContext(w http.ResponseWriter, r *http.Request, c Controlle
 		Repository:         s.repository,
 		serviceMap:         s.serviceMap,
 		LogLevel:           s.LogLevel,
+		NewRelicApp:        s.nrApp,
 		ControllerProvider: c.controllerProvider,
 		Controller:         &c,
 	}
 	context.SetRequestID(reqID)
+
+	// Initialize New Relic transaction if app is present
+	if s.nrApp != nil {
+		txn := s.nrApp.StartTransaction(c.Name)
+		if w != nil {
+			w = txn.SetWebResponse(w)
+			context.responseWriter = w
+		}
+		txn.SetWebRequestHTTP(r)
+		txn.AddAttribute("request.id", reqID)
+		txn.AddAttribute("controller", c.Name)
+		r = r.WithContext(newrelic.NewContext(r.Context(), txn))
+		context.Request = r
+		context.NewRelicTxn = txn
+	}
+
 	return context
 }
 
@@ -252,6 +289,9 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now().UnixNano()
 		ctx := s.initContext(w, r, c)
+		if ctx.NewRelicTxn != nil {
+			defer ctx.NewRelicTxn.End()
+		}
 		ctx.LogDebug(fmt.Sprintf("Executing %s for request: %s", c.Name, r.RequestURI))
 		if c.IsSecured {
 			err := c.AuthFunc(ctx)
@@ -271,6 +311,10 @@ func (s *Server) getControllerHandlerFunc(c Controller) func(w http.ResponseWrit
 		c.Execute(ctx)
 		duration := time.Now().UnixNano() - start
 		ctx.LogDebug(formatExecLogMessage(r, duration, ctx.ResponseCode))
+		if ctx.NewRelicTxn != nil {
+			ctx.NewRelicTxn.AddAttribute("http.status_code", ctx.ResponseCode)
+			ctx.NewRelicTxn.AddAttribute("http.duration_ns", duration)
+		}
 		if s.isPrometheusEnabled {
 			observed := float64(duration) / 1000000 // calc in ms
 			promHttpHist.With(prometheus.Labels{"controller": c.Name}).Observe(observed)
