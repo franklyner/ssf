@@ -38,3 +38,104 @@ Some things come for free:
 - Initialize your New Relic app in the caller and inject it after `CreateServer` and before `Start` using `SetNewRelicApp(app)`.
 - When set, each controller invocation runs inside a NR web transaction and MySQL calls (via the repository) are instrumented through `nrmysql` automatically.
 - If you do not set the app, nothing changes for existing users.
+
+## MCP (Model Context Protocol)
+
+The `mcp` package (`github.com/franklyner/ssf/mcp`) adds MCP support on top of the existing SSF controller model. It uses **Streamable HTTP** transport: JSON-RPC 2.0 messages sent via `POST`, with optional `GET` on the same path (returns `405` until SSE is implemented).
+
+MCP registers like any other `ControllerProvider` — no changes to the core server lifecycle.
+
+### Quick start
+
+Implement `MCPProvider` (or use `ProviderFunc`) and register `NewHTTPProvider` alongside your REST controllers:
+
+```go
+import "github.com/franklyner/ssf/mcp"
+
+provider := mcp.ProviderFunc{
+    ListToolsFunc: func(ctx *server.Context, cursor string) ([]mcp.Tool, string) {
+        return []mcp.Tool{
+            {Name: "echo", Description: "Echoes input", InputSchema: map[string]string{"type": "object"}},
+        }, ""
+    },
+    CallToolFunc: func(ctx *server.Context, name string, args map[string]interface{}) (mcp.CallToolResult, error) {
+        // dispatch to your services
+        return mcp.CallToolResult{
+            Content: []mcp.ContentItem{{Type: "text", Text: `{"ok":true}`}},
+        }, nil
+    },
+}
+
+ctrProviders := []server.ControllerProvider{
+    api.UserControllerProvider{},
+    mcp.NewHTTPProvider(mcp.HTTPConfig{
+        Path:      "/mcp",
+        Provider:  provider,
+        IsSecured: true,
+        AuthFunc:  myAuth,
+        Server:    mcp.ServerConfig{Name: "my-api", Version: "1.0.0"},
+    }),
+}
+
+srv := server.CreateServerWithPrefix(cfg, ctrProviders, "/v1")
+```
+
+This exposes `POST /v1/mcp` (JSON-RPC) and `GET /v1/mcp` (405 until SSE is added).
+
+### MCPProvider
+
+```go
+type MCPProvider interface {
+    ListTools(ctx *server.Context, cursor string) ([]Tool, string)
+    CallTool(ctx *server.Context, name string, arguments map[string]interface{}) (CallToolResult, error)
+}
+```
+
+`ProviderFunc` adapts plain functions to this interface when you don't need a struct.
+
+### HTTPConfig options
+
+| Field | Default | Description |
+|---|---|---|
+| `Path` | `/mcp` | MCP endpoint path |
+| `Metric` | `MCPJsonRpcController` | Base metric name (` - mcp` suffix applied automatically) |
+| `Provider` | — | Tool list and execution |
+| `AuthFunc` / `IsSecured` | unsecured | Same pattern as REST controllers |
+| `Server` | `ssf-mcp` / `1.0.0` | Name and version in `initialize` response |
+| `ProtocolVersion` | `2025-06-18` | MCP protocol version |
+| `RequireSession` | `false` | When `true`, `tools/list` and `tools/call` require `Mcp-Session-Id` from `initialize` |
+| `EnforceProtocolHeader` | `false` | When `true`, reject requests without `MCP-Protocol-Version` header |
+
+### Supported JSON-RPC methods
+
+| Method | Type | Description |
+|---|---|---|
+| `initialize` | request | Handshake; returns capabilities and sets `Mcp-Session-Id` response header |
+| `notifications/initialized` | notification | Client ack after initialize; HTTP 202, no JSON-RPC body |
+| `tools/list` | request | Lists tools from `MCPProvider.ListTools` |
+| `tools/call` | request | Executes a tool via `MCPProvider.CallTool` |
+
+Clients should send `Accept: application/json, text/event-stream` and may include `MCP-Protocol-Version`.
+
+### Metrics
+
+MCP metrics are suffixed with ` - mcp` so they are distinguishable from REST controller metrics on `/status`:
+
+- `MCPJsonRpcController - mcp` — transport endpoint
+- `initialize - mcp`, `tools/list - mcp`, `tools/call - mcp` — per-method counters
+- Per-tool metrics (when using controller dispatch in a later release) — `{Controller.Metric} - mcp`
+
+Use `mcp.MCPMetric("myMetric")` when incrementing custom MCP counters.
+
+### JSON-RPC response helpers
+
+The `server` package provides helpers on `Context` for JSON-RPC responses:
+
+```go
+ctx.SendJSONRPCResult(id, result)
+ctx.SendJSONRPCError(id, -32602, "Invalid params")
+```
+
+### Testing
+
+Use `srv.GetMainHandler()` with `httptest`, same as REST controllers. See `mcp/mcp_test.go` for examples covering `initialize`, `tools/list`, `tools/call`, and session enforcement.
