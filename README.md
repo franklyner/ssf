@@ -32,7 +32,7 @@ Some things come for free:
 * Each request gets it's unique UUID. All messages logged through the functions provided by the context will be prefixed with the request id for correlation.
 * Some easy to use methods to send html and json responses
 * Easy testability: Ther server exposes a GetMainHandler() function that gives access to the main request handler which can then be used for unit testing.
-* A status page that gives an overview of how many times each controller has been called and since when the server is running.
+* A status page that gives an overview of how many times each controller has been called and since when the server is running. Controllers and other code can also publish non-controller int metrics via `StatusInformation.SetMetric` / `IncrementMetric`, and string status values via `SetInfo` (shown in the same Non Controller Metrics table).
 
 ## New Relic (optional)
 - Initialize your New Relic app in the caller and inject it after `CreateServer` and before `Start` using `SetNewRelicApp(app)`.

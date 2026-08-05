@@ -16,6 +16,7 @@ const (
 // StatusInformation struct holding all status metrics. Meant to be instantiated once per server
 type StatusInformation struct {
 	Stats map[string]int
+	Infos map[string]string
 	mutex sync.Mutex
 	start time.Time
 }
@@ -27,6 +28,7 @@ type Metric string
 func CreateStatusInfo() *StatusInformation {
 	s := StatusInformation{
 		Stats: make(map[string]int),
+		Infos: make(map[string]string),
 		start: time.Now(),
 	}
 	return &s
@@ -51,11 +53,28 @@ func (s *StatusInformation) SetMetric(metric string, value int) {
 	s.Stats[metric] = value
 }
 
+// SetInfo sets a string status value shown on the status page under Non Controller Metrics. Threadsafe.
+func (s *StatusInformation) SetInfo(key, value string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.Infos[key] = value
+}
+
 func (s *StatusInformation) snapshot() map[string]int {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	ss := make(map[string]int)
 	for k, v := range s.Stats {
+		ss[k] = v
+	}
+	return ss
+}
+
+func (s *StatusInformation) snapshotInfos() map[string]string {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	ss := make(map[string]string)
+	for k, v := range s.Infos {
 		ss[k] = v
 	}
 	return ss
@@ -70,6 +89,7 @@ var StatusController Controller = Controller{
 	IsSecured: false,
 	ControllerFunc: func(ctx *Context) {
 		stats := ctx.StatusInformation.snapshot()
+		infos := ctx.StatusInformation.snapshotInfos()
 		html := strings.Builder{}
 		html.WriteString("<html><h1>Status</h1><br/>")
 		html.WriteString(fmt.Sprintf("Running since: %s<br/><br/>", ctx.StatusInformation.start.Format("2006-01-02 15:04:05")))
@@ -95,12 +115,20 @@ var StatusController Controller = Controller{
 					<th>Value</th>
 				</tr>`)
 		sortedMetrics := make([]string, 0, len(stats))
-		for metric, _ := range stats {
+		for metric := range stats {
 			sortedMetrics = append(sortedMetrics, metric)
 		}
 		slices.Sort(sortedMetrics)
 		for _, metric := range sortedMetrics {
 			html.WriteString(fmt.Sprintf("<tr><td>%s</td><td align='center'>%d</td></tr>", metric, stats[metric]))
+		}
+		sortedInfos := make([]string, 0, len(infos))
+		for key := range infos {
+			sortedInfos = append(sortedInfos, key)
+		}
+		slices.Sort(sortedInfos)
+		for _, key := range sortedInfos {
+			html.WriteString(fmt.Sprintf("<tr><td>%s</td><td align='center'>%s</td></tr>", key, infos[key]))
 		}
 		html.WriteString("</table>\n")
 
