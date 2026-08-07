@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -26,7 +25,8 @@ type HTTPConfig struct {
 	ProtocolVersion string
 	// RequireSession requires a valid Mcp-Session-Id header for tools/list and tools/call.
 	RequireSession bool
-	// EnforceProtocolHeader rejects requests when MCP-Protocol-Version header is missing.
+	// EnforceProtocolHeader rejects requests when MCP-Protocol-Version header is missing
+	// or does not match ProtocolVersion.
 	EnforceProtocolHeader bool
 }
 
@@ -84,9 +84,22 @@ func (p HTTPProvider) GetControllers() []server.Controller {
 }
 
 func (p HTTPProvider) jsonRpcController(ctx *server.Context) {
+	body, err := ctx.GetRequestBody()
+	if err != nil {
+		ctx.SendJSONRPCError(nil, ErrCodeParseError, "Parse error")
+		return
+	}
+
+	req, err := parseJSONRPCRequest(body)
+	if err != nil {
+		ctx.SendJSONRPCError(nil, ErrCodeParseError, "Parse error")
+		return
+	}
+
 	if err := validateStreamableHTTPRequest(ctx, p.cfg); err != nil {
 		if headerErr, ok := err.(*headerMismatchError); ok {
-			ctx.SendJSONRPCError(nil, headerErr.Code, headerErr.Message)
+			// Preserve request id when available so MCP clients can correlate errors.
+			ctx.SendJSONRPCError(req.ID, headerErr.Code, headerErr.Message)
 			return
 		}
 		ctx.SendJsonError(server.JSONErrorResponse{
@@ -94,18 +107,6 @@ func (p HTTPProvider) jsonRpcController(ctx *server.Context) {
 			Message:    "bad_request",
 			LogMessage: err.Error(),
 		})
-		return
-	}
-
-	body, err := ctx.GetRequestBody()
-	if err != nil {
-		ctx.SendJSONRPCError(nil, ErrCodeParseError, "Parse error")
-		return
-	}
-
-	var req JSONRPCRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		ctx.SendJSONRPCError(nil, ErrCodeParseError, "Parse error")
 		return
 	}
 
@@ -129,7 +130,10 @@ func validateStreamableHTTPRequest(ctx *server.Context, cfg HTTPConfig) error {
 			Message: "Missing MCP-Protocol-Version header",
 		}
 	}
-	if headerVersion != "" && headerVersion != cfg.ProtocolVersion {
+	// Only reject version mismatches in strict mode. Otherwise accept the client's
+	// advertised version header so common harnesses (Cursor, etc.) can connect when
+	// they send a negotiated/older MCP-Protocol-Version after initialize.
+	if cfg.EnforceProtocolHeader && headerVersion != "" && headerVersion != cfg.ProtocolVersion {
 		return &headerMismatchError{
 			Code:    ErrCodeInvalidRequest,
 			Message: fmt.Sprintf("MCP-Protocol-Version mismatch: header %q, expected %q", headerVersion, cfg.ProtocolVersion),

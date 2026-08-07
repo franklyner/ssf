@@ -104,7 +104,7 @@ type MCPProvider interface {
 | `Server` | `ssf-mcp` / `1.0.0` | Name and version in `initialize` response |
 | `ProtocolVersion` | `2025-06-18` | MCP protocol version |
 | `RequireSession` | `false` | When `true`, `tools/list` and `tools/call` require `Mcp-Session-Id` from `initialize` |
-| `EnforceProtocolHeader` | `false` | When `true`, reject requests without `MCP-Protocol-Version` header |
+| `EnforceProtocolHeader` | `false` | When `true`, require `MCP-Protocol-Version` and reject mismatches against `ProtocolVersion` |
 
 ### Supported JSON-RPC methods
 

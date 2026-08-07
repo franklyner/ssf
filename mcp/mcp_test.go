@@ -174,6 +174,96 @@ func TestInitializedNotification(t *testing.T) {
 	}
 }
 
+func TestNullIDRejected(t *testing.T) {
+	srv := newTestServer(stubProvider{})
+	raw := []byte(`{"jsonrpc":"2.0","id":null,"method":"tools/list"}`)
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	rec := httptest.NewRecorder()
+	srv.GetMainHandler().ServeHTTP(rec, req)
+
+	resp := decodeJSONRPC(t, rec)
+	if resp.Error == nil || resp.Error.Code != mcp.ErrCodeInvalidRequest {
+		t.Fatalf("expected invalid request for null id, got %+v", resp.Error)
+	}
+}
+
+func TestProtocolVersionMismatchAllowedByDefault(t *testing.T) {
+	srv := newTestServer(stubProvider{
+		tools: []mcp.Tool{{Name: "echo", Description: "echo tool"}},
+	})
+	raw, err := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      2,
+		"method":  "tools/list",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set(mcp.HeaderProtocolVersion, "2025-03-26") // different from server default
+	rec := httptest.NewRecorder()
+	srv.GetMainHandler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	resp := decodeJSONRPC(t, rec)
+	if resp.Error != nil {
+		t.Fatalf("expected success with mismatched protocol header when EnforceProtocolHeader is false, got %+v", resp.Error)
+	}
+	if resp.ID == nil {
+		t.Fatal("expected response id to be preserved")
+	}
+}
+
+func TestProtocolVersionMismatchRejectedWhenEnforced(t *testing.T) {
+	cfg := server.CreateConfig("../cmd/minimal", "minimal", []string{
+		server.ConfigPort,
+		server.ConfigReadTimeout,
+		server.ConfigWriteTimeout,
+		server.ConfigLogLevel,
+		server.ConfigEnablePrometheus,
+		server.ConfigEnableOpenAPI,
+	})
+	cfg.SetProperty(server.ConfigEnablePrometheus, "false")
+	cfg.SetProperty(server.ConfigEnableOpenAPI, "false")
+
+	httpProvider := mcp.NewHTTPProvider(mcp.HTTPConfig{
+		Path:                  "/mcp",
+		Provider:              stubProvider{},
+		EnforceProtocolHeader: true,
+		ProtocolVersion:       mcp.DefaultProtocolVersion,
+	})
+	srv := server.CreateServer(cfg, []server.ControllerProvider{httpProvider})
+
+	raw, err := json.Marshal(map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      9,
+		"method":  "tools/list",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/mcp", bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set(mcp.HeaderProtocolVersion, "2025-03-26")
+	rec := httptest.NewRecorder()
+	srv.GetMainHandler().ServeHTTP(rec, req)
+
+	resp := decodeJSONRPC(t, rec)
+	if resp.Error == nil {
+		t.Fatal("expected protocol mismatch error")
+	}
+	if resp.ID != float64(9) {
+		t.Fatalf("expected error response to echo request id 9, got %#v", resp.ID)
+	}
+}
+
 func TestSSEEndpointNotSupported(t *testing.T) {
 	srv := newTestServer(stubProvider{})
 	req := httptest.NewRequest(http.MethodGet, "/mcp", nil)

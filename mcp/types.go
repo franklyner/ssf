@@ -1,5 +1,7 @@
 package mcp
 
+import "encoding/json"
+
 // JSON-RPC 2.0 standard error codes.
 const (
 	ErrCodeParseError     = -32700
@@ -25,11 +27,33 @@ type JSONRPCRequest struct {
 	ID      interface{}            `json:"id"`
 	Method  string                 `json:"method"`
 	Params  map[string]interface{} `json:"params,omitempty"`
+	// idPresent is true when the JSON object included an "id" member (even if null).
+	idPresent bool
 }
 
-// IsNotification reports whether the message is a JSON-RPC notification (no id).
+// IsNotification reports whether the message is a JSON-RPC notification (no id member).
+// Explicit "id": null is not a notification; use HasNullID and reject as invalid.
 func (r JSONRPCRequest) IsNotification() bool {
-	return r.ID == nil
+	return !r.idPresent
+}
+
+// HasNullID reports whether the request included "id": null.
+func (r JSONRPCRequest) HasNullID() bool {
+	return r.idPresent && r.ID == nil
+}
+
+// parseJSONRPCRequest unmarshals a JSON-RPC message and records whether "id" was present.
+func parseJSONRPCRequest(body []byte) (JSONRPCRequest, error) {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return JSONRPCRequest{}, err
+	}
+	var req JSONRPCRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		return JSONRPCRequest{}, err
+	}
+	_, req.idPresent = raw["id"]
+	return req, nil
 }
 
 // Tool is an MCP tool definition.

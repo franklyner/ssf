@@ -49,6 +49,10 @@ func (d *Dispatcher) Handle(ctx *server.Context, req JSONRPCRequest) bool {
 		ctx.SendJSONRPCError(req.ID, ErrCodeInvalidRequest, "Invalid Request: method is required")
 		return true
 	}
+	if req.HasNullID() {
+		ctx.SendJSONRPCError(nil, ErrCodeInvalidRequest, "Invalid Request: id must be a string or number")
+		return true
+	}
 
 	if req.IsNotification() {
 		return d.handleNotification(ctx, req)
