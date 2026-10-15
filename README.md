@@ -34,6 +34,46 @@ Some things come for free:
 * Easy testability: Ther server exposes a GetMainHandler() function that gives access to the main request handler which can then be used for unit testing.
 * A status page that gives an overview of how many times each controller has been called and since when the server is running. Controllers and other code can also publish non-controller int metrics via `StatusInformation.SetMetric` / `IncrementMetric`, and string status values via `SetInfo` (shown in the same Non Controller Metrics table).
 
+## Server-Sent Events
+
+Controllers can start a long-lived SSE response with `ctx.BeginSSE()`. The
+returned writer handles headers, event framing, flushing, concurrent writes,
+request cancellation, and the server write deadline.
+
+```go
+func eventsController(ctx *server.Context) {
+	stream, err := ctx.BeginSSE()
+	if err != nil {
+		ctx.LogErrorf("unable to start event stream: %v", err)
+		return
+	}
+
+	if err := stream.SendJSON("state", "run-1", map[string]string{
+		"status": "PLANNING",
+	}); err != nil {
+		ctx.LogErrorf("unable to send event: %v", err)
+		return
+	}
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Request.Context().Done():
+			return
+		case <-ticker.C:
+			if err := stream.SendComment("heartbeat"); err != nil {
+				return
+			}
+		}
+	}
+}
+```
+
+`Send` accepts an `SSEEvent` for text or multiline data. `SendJSON` marshals a
+value as JSON, and `SendComment` can be used for heartbeats. Applications remain
+responsible for event fan-out, buffering, replay, and authorization.
+
 ## New Relic (optional)
 - Initialize your New Relic app in the caller and inject it after `CreateServer` and before `Start` using `SetNewRelicApp(app)`.
 - When set, each controller invocation runs inside a NR web transaction and MySQL calls (via the repository) are instrumented through `nrmysql` automatically.
